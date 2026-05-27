@@ -20,7 +20,7 @@
 const NODE_DEFS = {
     // ----- triggers -----
     trigger_doctype: {
-        label: 'DocType Event', icon: 'ti-bolt', color: '#EEEDFE', iconColor: '#534AB7',
+        label: 'DocType Event', icon: 'ti-bolt', color: '#EEEDFE', iconColor: '#F59E0B',
         category: 'trigger', fields: [
             { k: 'doctype', l: 'DocType', t: 'link', options: 'DocType', v: 'Sales Invoice' },
             { k: 'event', l: 'Event', t: 'select',
@@ -29,25 +29,25 @@ const NODE_DEFS = {
         ],
     },
     trigger_webhook: {
-        label: 'Webhook', icon: 'ti-webhook', color: '#EEEDFE', iconColor: '#534AB7',
+        label: 'Webhook', icon: 'ti-webhook', color: '#EEEDFE', iconColor: '#F59E0B',
         category: 'trigger', fields: [
             { k: 'path', l: 'Path (auto)', t: 'text', v: '', readonly: true },
         ],
     },
     trigger_schedule: {
-        label: 'Schedule', icon: 'ti-clock', color: '#EEEDFE', iconColor: '#534AB7',
+        label: 'Schedule', icon: 'ti-clock', color: '#EEEDFE', iconColor: '#F59E0B',
         category: 'trigger', fields: [
             { k: 'cron', l: 'Cron expression', t: 'text', v: '0 9 * * *' },
         ],
     },
     trigger_manual: {
-        label: 'Manual', icon: 'ti-hand-click', color: '#EEEDFE', iconColor: '#534AB7',
+        label: 'Manual', icon: 'ti-hand-click', color: '#EEEDFE', iconColor: '#F59E0B',
         category: 'trigger', fields: [],
     },
 
     // ----- AI -----
     ai_llm: {
-        label: 'LLM Prompt', icon: 'ti-sparkles', color: '#EAF3DE', iconColor: '#1D9E75',
+        label: 'LLM Prompt', icon: 'ti-sparkles', color: '#EAF3DE', iconColor: '#10B981',
         category: 'ai', fields: [
             { k: 'prompt', l: 'Prompt', t: 'textarea', v: 'Summarize: {{trigger.doc}}' },
             { k: 'system', l: 'System prompt (optional)', t: 'textarea', v: '' },
@@ -56,7 +56,7 @@ const NODE_DEFS = {
         ],
     },
     ai_extract: {
-        label: 'AI Extractor', icon: 'ti-list-search', color: '#EAF3DE', iconColor: '#1D9E75',
+        label: 'AI Extractor', icon: 'ti-list-search', color: '#EAF3DE', iconColor: '#10B981',
         category: 'ai', fields: [
             { k: 'source', l: 'Source text', t: 'textarea', v: '{{trigger.doc}}' },
             { k: 'fields', l: 'Fields (csv or JSON map)', t: 'textarea',
@@ -65,7 +65,7 @@ const NODE_DEFS = {
         ],
     },
     ai_classify: {
-        label: 'Classifier', icon: 'ti-category', color: '#EAF3DE', iconColor: '#1D9E75',
+        label: 'Classifier', icon: 'ti-category', color: '#EAF3DE', iconColor: '#10B981',
         category: 'ai', fields: [
             { k: 'text', l: 'Input text', t: 'textarea', v: '{{trigger.doc}}' },
             { k: 'categories', l: 'Categories (csv)', t: 'text', v: 'hot, warm, cold' },
@@ -74,14 +74,14 @@ const NODE_DEFS = {
         ],
     },
     ai_sentiment: {
-        label: 'Sentiment', icon: 'ti-mood-smile', color: '#EAF3DE', iconColor: '#1D9E75',
+        label: 'Sentiment', icon: 'ti-mood-smile', color: '#EAF3DE', iconColor: '#10B981',
         category: 'ai', fields: [
             { k: 'text', l: 'Input text', t: 'textarea', v: '' },
             { k: 'output', l: 'Output variable', t: 'text', v: 'sentiment' },
         ],
     },
     ai_agent: {
-        label: 'Auto Agent', icon: 'ti-robot', color: '#EAF3DE', iconColor: '#1D9E75',
+        label: 'Auto Agent', icon: 'ti-robot', color: '#EAF3DE', iconColor: '#10B981',
         category: 'ai', fields: [
             { k: 'task', l: 'Task (natural language)', t: 'textarea',
               v: 'Find all open Sales Invoices for customer {{customer}} and summarise them.' },
@@ -93,7 +93,7 @@ const NODE_DEFS = {
         ],
     },
     ai_vision: {
-        label: 'Vision/OCR', icon: 'ti-eye', color: '#EAF3DE', iconColor: '#1D9E75',
+        label: 'Vision/OCR', icon: 'ti-eye', color: '#EAF3DE', iconColor: '#10B981',
         category: 'ai', fields: [
             { k: 'file_url', l: 'File URL', t: 'text', v: '{{trigger.doc.file_url}}' },
             { k: 'prompt', l: 'Instruction', t: 'textarea',
@@ -104,13 +104,13 @@ const NODE_DEFS = {
 
     // ----- logic -----
     logic_condition: {
-        label: 'Condition', icon: 'ti-git-fork', color: '#FAEEDA', iconColor: '#BA7517',
+        label: 'Condition', icon: 'ti-git-fork', color: '#FAEEDA', iconColor: '#FB923C',
         category: 'logic', hasBranch: true, fields: [
             { k: 'expr', l: 'Expression', t: 'textarea', v: '{{extracted.amount}} > 50000' },
         ],
     },
     logic_loop: {
-        label: 'Loop', icon: 'ti-refresh', color: '#FAEEDA', iconColor: '#BA7517',
+        label: 'Loop', icon: 'ti-refresh', color: '#FAEEDA', iconColor: '#FB923C',
         category: 'logic', fields: [
             { k: 'items', l: 'Items (Jinja → list)', t: 'text', v: '{{ items_list }}' },
             { k: 'item_var', l: 'Item variable', t: 'text', v: 'item' },
@@ -118,19 +118,19 @@ const NODE_DEFS = {
         ],
     },
     logic_wait: {
-        label: 'Wait / Delay', icon: 'ti-hourglass', color: '#FAEEDA', iconColor: '#BA7517',
+        label: 'Wait / Delay', icon: 'ti-hourglass', color: '#FAEEDA', iconColor: '#FB923C',
         category: 'logic', fields: [
             { k: 'seconds', l: 'Seconds (≤60 for sync runs)', t: 'text', v: '5' },
         ],
     },
     logic_parallel: {
-        label: 'Parallel', icon: 'ti-arrows-split', color: '#FAEEDA', iconColor: '#BA7517',
+        label: 'Parallel', icon: 'ti-arrows-split', color: '#FAEEDA', iconColor: '#FB923C',
         category: 'logic', fields: [],
     },
 
     // ----- frappe -----
     frappe_create: {
-        label: 'Create Doc', icon: 'ti-file-plus', color: '#E6F1FB', iconColor: '#185FA5',
+        label: 'Create Doc', icon: 'ti-file-plus', color: '#E6F1FB', iconColor: '#38BDF8',
         category: 'frappe', fields: [
             { k: 'doctype', l: 'DocType', t: 'link', options: 'DocType', v: 'ToDo' },
             { k: 'values', l: 'Values (JSON)', t: 'textarea',
@@ -138,7 +138,7 @@ const NODE_DEFS = {
         ],
     },
     frappe_update: {
-        label: 'Update Doc', icon: 'ti-edit', color: '#E6F1FB', iconColor: '#185FA5',
+        label: 'Update Doc', icon: 'ti-edit', color: '#E6F1FB', iconColor: '#38BDF8',
         category: 'frappe', fields: [
             { k: 'doctype', l: 'DocType', t: 'link', options: 'DocType', v: 'Sales Invoice' },
             { k: 'name', l: 'Document name', t: 'text', v: '{{trigger.doc.name}}' },
@@ -147,7 +147,7 @@ const NODE_DEFS = {
         ],
     },
     frappe_fetch: {
-        label: 'Fetch Doc', icon: 'ti-database-search', color: '#E6F1FB', iconColor: '#185FA5',
+        label: 'Fetch Doc', icon: 'ti-database-search', color: '#E6F1FB', iconColor: '#38BDF8',
         category: 'frappe', fields: [
             { k: 'doctype', l: 'DocType', t: 'link', options: 'DocType', v: 'Sales Invoice' },
             { k: 'name', l: 'Single name (optional)', t: 'text', v: '' },
@@ -159,14 +159,14 @@ const NODE_DEFS = {
         ],
     },
     frappe_submit: {
-        label: 'Submit Doc', icon: 'ti-file-check', color: '#E6F1FB', iconColor: '#185FA5',
+        label: 'Submit Doc', icon: 'ti-file-check', color: '#E6F1FB', iconColor: '#38BDF8',
         category: 'frappe', fields: [
             { k: 'doctype', l: 'DocType', t: 'link', options: 'DocType', v: 'Purchase Invoice' },
             { k: 'name', l: 'Document name', t: 'text', v: '{{doc_name}}' },
         ],
     },
     frappe_script: {
-        label: 'Server Script', icon: 'ti-code', color: '#E6F1FB', iconColor: '#185FA5',
+        label: 'Server Script', icon: 'ti-code', color: '#E6F1FB', iconColor: '#38BDF8',
         category: 'frappe', fields: [
             { k: 'script', l: 'Python', t: 'textarea',
               v: 'result = frappe.db.get_value("Customer", "Acme", "credit_limit")' },
@@ -175,7 +175,7 @@ const NODE_DEFS = {
 
     // ----- integrations -----
     int_email: {
-        label: 'Send Email', icon: 'ti-mail', color: '#FAECE7', iconColor: '#993C1D',
+        label: 'Send Email', icon: 'ti-mail', color: '#FAECE7', iconColor: '#F472B6',
         category: 'integration', fields: [
             { k: 'to', l: 'To', t: 'text', v: '{{trigger.doc.contact_email}}' },
             { k: 'subject', l: 'Subject', t: 'text', v: 'Invoice {{trigger.doc.name}}' },
@@ -184,7 +184,7 @@ const NODE_DEFS = {
         ],
     },
     int_whatsapp: {
-        label: 'WhatsApp', icon: 'ti-brand-whatsapp', color: '#FAECE7', iconColor: '#993C1D',
+        label: 'WhatsApp', icon: 'ti-brand-whatsapp', color: '#FAECE7', iconColor: '#F472B6',
         category: 'integration', fields: [
             { k: 'to', l: 'Phone number', t: 'text', v: '{{trigger.doc.mobile_no}}' },
             { k: 'message', l: 'Message', t: 'textarea',
@@ -192,7 +192,7 @@ const NODE_DEFS = {
         ],
     },
     int_http: {
-        label: 'HTTP Request', icon: 'ti-api', color: '#FAECE7', iconColor: '#993C1D',
+        label: 'HTTP Request', icon: 'ti-api', color: '#FAECE7', iconColor: '#F472B6',
         category: 'integration', fields: [
             { k: 'url', l: 'URL', t: 'text', v: 'https://api.example.com/notify' },
             { k: 'method', l: 'Method', t: 'select', opts: ['POST', 'GET', 'PUT', 'PATCH', 'DELETE'], v: 'POST' },
@@ -202,7 +202,7 @@ const NODE_DEFS = {
         ],
     },
     int_slack: {
-        label: 'Slack', icon: 'ti-brand-slack', color: '#FAECE7', iconColor: '#993C1D',
+        label: 'Slack', icon: 'ti-brand-slack', color: '#FAECE7', iconColor: '#F472B6',
         category: 'integration', fields: [
             { k: 'channel', l: 'Channel', t: 'text', v: '#sales-alerts' },
             { k: 'message', l: 'Message', t: 'textarea',
@@ -210,7 +210,7 @@ const NODE_DEFS = {
         ],
     },
     int_sheets: {
-        label: 'Google Sheets', icon: 'ti-table', color: '#FAECE7', iconColor: '#993C1D',
+        label: 'Google Sheets', icon: 'ti-table', color: '#FAECE7', iconColor: '#F472B6',
         category: 'integration', fields: [
             { k: 'sheet_id', l: 'Sheet ID', t: 'text', v: '' },
             { k: 'range', l: 'Range', t: 'text', v: 'Sheet1!A:Z' },
@@ -221,7 +221,7 @@ const NODE_DEFS = {
         ],
     },
     int_razorpay: {
-        label: 'Razorpay', icon: 'ti-credit-card', color: '#FAECE7', iconColor: '#993C1D',
+        label: 'Razorpay', icon: 'ti-credit-card', color: '#FAECE7', iconColor: '#F472B6',
         category: 'integration', fields: [
             { k: 'action', l: 'Action', t: 'select',
               opts: ['Create order', 'Fetch payment', 'Create link'], v: 'Create order' },
@@ -233,14 +233,14 @@ const NODE_DEFS = {
 
     // ----- transforms -----
     tf_mapper: {
-        label: 'Field Mapper', icon: 'ti-arrows-exchange', color: '#F1EFE8', iconColor: '#5F5E5A',
+        label: 'Field Mapper', icon: 'ti-arrows-exchange', color: '#F1EFE8', iconColor: '#94A3B8',
         category: 'transform', fields: [
             { k: 'mapping', l: 'Mapping (JSON of templates)', t: 'textarea',
               v: '{"out_field": "{{in_field}}"}' },
         ],
     },
     tf_jinja: {
-        label: 'Jinja Template', icon: 'ti-braces', color: '#F1EFE8', iconColor: '#5F5E5A',
+        label: 'Jinja Template', icon: 'ti-braces', color: '#F1EFE8', iconColor: '#94A3B8',
         category: 'transform', fields: [
             { k: 'template', l: 'Template', t: 'textarea',
               v: 'Hello {{ customer_name }}, your order {{ order_id }} is ready.' },
@@ -248,7 +248,7 @@ const NODE_DEFS = {
         ],
     },
     tf_code: {
-        label: 'Python Code', icon: 'ti-brand-python', color: '#F1EFE8', iconColor: '#5F5E5A',
+        label: 'Python Code', icon: 'ti-brand-python', color: '#F1EFE8', iconColor: '#94A3B8',
         category: 'transform', fields: [
             { k: 'code', l: 'Python', t: 'textarea',
               v: 'output = {k: v for k, v in input.items() if v}' },
@@ -267,44 +267,193 @@ const SIDEBAR_GROUPS = [
 ];
 
 const CATEGORY_DOT = {
-    trigger: '#534AB7', ai: '#1D9E75', logic: '#BA7517',
-    frappe: '#185FA5', integration: '#D85A30', transform: '#888780',
+    trigger: '#F59E0B', ai: '#10B981', logic: '#FB923C',
+    frappe: '#38BDF8', integration: '#F472B6', transform: '#94A3B8',
 };
 
 // ============================================================
-// Templates (preset workflows)
+// Templates — AI-powered workflows for ERPNext, ready to drop on the canvas
 // ============================================================
 const TEMPLATES = {
     invoice_approval: {
-        name: 'Invoice Approval',
+        name: 'AI Invoice Approval',
+        category: 'Sales',
+        icon: 'ti-receipt-2',
+        accent: '#38BDF8',
+        description: 'Auto-route high-value Sales Invoices for approval via WhatsApp and mark the doc as processed.',
         nodes: [
             { t: 'trigger_doctype', cfg: { doctype: 'Sales Invoice', event: 'After Submit' } },
-            { t: 'ai_extract', cfg: { source: '{{trigger.doc}}', fields: 'amount, customer, line_items', output: 'extracted' } },
-            { t: 'logic_condition', cfg: { expr: '{{extracted.amount}} > 50000' } },
-            { t: 'int_whatsapp', cfg: { to: '{{trigger.doc.contact_mobile}}', message: 'Invoice approval needed: ₹{{extracted.amount}}' } },
-            { t: 'frappe_update', cfg: { doctype: 'Sales Invoice', name: '{{trigger.doc.name}}', fields: '{"custom_ai_status":"Processed"}' } },
+            { t: 'logic_condition',  cfg: { expr: '{{trigger.doc.grand_total}} > 50000' } },
+            { t: 'int_whatsapp',     cfg: { to: '{{trigger.doc.contact_mobile}}', message: 'Approval needed for invoice {{trigger.doc.name}} — ₹{{trigger.doc.grand_total}} from {{trigger.doc.customer_name}}.' } },
+            { t: 'frappe_update',    cfg: { doctype: 'Sales Invoice', name: '{{trigger.doc.name}}', fields: '{"custom_ai_status":"Approval Sent"}' } },
         ],
         trigger: { type: 'DocType Event', doctype: 'Sales Invoice', event: 'After Submit' },
     },
+
     lead_qualify: {
-        name: 'Lead Auto-Qualify',
+        name: 'AI Lead Qualifier',
+        category: 'CRM',
+        icon: 'ti-flame',
+        accent: '#F472B6',
+        description: 'When a new Lead is captured, classify it as hot / warm / cold using AI and route to the right channel.',
         nodes: [
             { t: 'trigger_doctype', cfg: { doctype: 'Lead', event: 'After Insert' } },
-            { t: 'ai_classify', cfg: { text: '{{trigger.doc.lead_name}} {{trigger.doc.notes}}', categories: 'hot, warm, cold', output: 'category' } },
-            { t: 'frappe_update', cfg: { doctype: 'Lead', name: '{{trigger.doc.name}}', fields: '{"custom_lead_score":"{{category}}"}' } },
-            { t: 'int_slack', cfg: { channel: '#sales', message: 'Lead {{trigger.doc.lead_name}} = {{category}}' } },
+            { t: 'ai_classify',     cfg: { text: 'Lead: {{trigger.doc.lead_name}} from {{trigger.doc.company_name}}. Industry: {{trigger.doc.industry}}. Notes: {{trigger.doc.notes}}', categories: 'hot, warm, cold', instructions: 'Hot = budget confirmed, decision-maker reached. Warm = expressed interest. Cold = generic enquiry.', output: 'lead_temp' } },
+            { t: 'frappe_update',   cfg: { doctype: 'Lead', name: '{{trigger.doc.name}}', fields: '{"custom_ai_score": "{{lead_temp}}"}' } },
+            { t: 'int_slack',       cfg: { channel: '#sales', message: '🔥 *{{lead_temp}}* lead: {{trigger.doc.lead_name}} ({{trigger.doc.company_name}})' } },
         ],
         trigger: { type: 'DocType Event', doctype: 'Lead', event: 'After Insert' },
     },
-    daily_digest: {
+
+    overdue_digest: {
         name: 'Daily Overdue Digest',
+        category: 'Accounts',
+        icon: 'ti-clock-exclamation',
+        accent: '#F59E0B',
+        description: 'Every morning, fetch overdue Sales Invoices, summarise with AI, and email the accounts team.',
         nodes: [
-            { t: 'trigger_schedule', cfg: { cron: '0 9 * * *' } },
-            { t: 'frappe_fetch', cfg: { doctype: 'Sales Invoice', filters: '{"status":"Overdue"}', fields: 'name, customer, grand_total', limit: '50', output: 'invoices' } },
-            { t: 'ai_llm', cfg: { prompt: 'Write a 3-line summary of these overdue invoices: {{invoices}}', output: 'summary' } },
-            { t: 'int_email', cfg: { to: 'accounts@example.com', subject: 'Daily overdue digest', body: '{{summary}}' } },
+            { t: 'trigger_schedule', cfg: { cron: '0 9 * * 1-5' } },
+            { t: 'frappe_fetch',     cfg: { doctype: 'Sales Invoice', filters: '{"status": "Overdue", "docstatus": 1}', fields: 'name, customer, grand_total, due_date', limit: '50', output: 'invoices' } },
+            { t: 'ai_llm',           cfg: { prompt: 'Write a concise 4-line summary of these overdue invoices, calling out the largest amount and oldest due date:\n\n{% for inv in invoices %}- {{inv.name}}: {{inv.customer}} ₹{{inv.grand_total}}, due {{inv.due_date}}\n{% endfor %}', output: 'summary' } },
+            { t: 'int_email',        cfg: { to: 'accounts@example.com', subject: 'Overdue Invoices — {{ frappe.utils.now() }}', body: '<p>{{summary}}</p>' } },
         ],
-        trigger: { type: 'Schedule', cron: '0 9 * * *' },
+        trigger: { type: 'Schedule', cron: '0 9 * * 1-5' },
+    },
+
+    candidate_screening: {
+        name: 'AI Candidate Screener',
+        category: 'HR',
+        icon: 'ti-user-search',
+        accent: '#10B981',
+        description: 'When a Job Applicant is added, score their resume against the job description with AI and tag them.',
+        nodes: [
+            { t: 'trigger_doctype', cfg: { doctype: 'Job Applicant', event: 'After Insert' } },
+            { t: 'ai_llm',          cfg: { prompt: 'Score this candidate from 1-10 against the job. Reply with just the number then a one-line reason.\n\nJob: {{trigger.doc.job_title}}\nCandidate: {{trigger.doc.applicant_name}}\nResume:\n{{trigger.doc.resume_attachment}}\nCover letter:\n{{trigger.doc.cover_letter}}', output: 'screening' } },
+            { t: 'frappe_update',   cfg: { doctype: 'Job Applicant', name: '{{trigger.doc.name}}', fields: '{"custom_ai_screening": "{{screening}}"}' } },
+            { t: 'int_email',       cfg: { to: '{{trigger.doc.email_id}}', subject: 'We received your application for {{trigger.doc.job_title}}', body: 'Hi {{trigger.doc.applicant_name}},<br><br>Thanks for applying. Our team will review and get back to you within 5 business days.' } },
+        ],
+        trigger: { type: 'DocType Event', doctype: 'Job Applicant', event: 'After Insert' },
+    },
+
+    expense_review: {
+        name: 'AI Expense Categorizer',
+        category: 'Accounts',
+        icon: 'ti-wallet',
+        accent: '#FB923C',
+        description: 'When an Expense Claim is submitted, use AI to categorize items and flag anything unusual for manager review.',
+        nodes: [
+            { t: 'trigger_doctype', cfg: { doctype: 'Expense Claim', event: 'After Submit' } },
+            { t: 'ai_extract',      cfg: { source: '{% for item in trigger.doc.expenses %}- {{item.description}}: ₹{{item.amount}}\n{% endfor %}', fields: '{"is_unusual": "boolean — true if any item is over budget or non-policy", "summary": "one sentence summary"}', output: 'review' } },
+            { t: 'logic_condition', cfg: { expr: '{{review.is_unusual}} == true' } },
+            { t: 'int_email',       cfg: { to: '{{trigger.doc.expense_approver}}', subject: 'Review needed: {{trigger.doc.name}}', body: '{{review.summary}}<br><br>Total: ₹{{trigger.doc.total_claimed_amount}}<br>Employee: {{trigger.doc.employee_name}}' } },
+            { t: 'frappe_update',   cfg: { doctype: 'Expense Claim', name: '{{trigger.doc.name}}', fields: '{"custom_ai_notes": "{{review.summary}}"}' } },
+        ],
+        trigger: { type: 'DocType Event', doctype: 'Expense Claim', event: 'After Submit' },
+    },
+
+    support_triage: {
+        name: 'AI Support Ticket Triage',
+        category: 'Support',
+        icon: 'ti-headset',
+        accent: '#F472B6',
+        description: 'Classify new support Issues by urgency and topic, auto-assign to the right team.',
+        nodes: [
+            { t: 'trigger_doctype', cfg: { doctype: 'Issue', event: 'After Insert' } },
+            { t: 'ai_extract',      cfg: { source: 'Subject: {{trigger.doc.subject}}\n\nDescription: {{trigger.doc.description}}', fields: '{"priority": "Low | Medium | High | Urgent", "team": "Engineering | Billing | General", "sentiment": "positive | neutral | negative | angry"}', output: 'triage' } },
+            { t: 'frappe_update',   cfg: { doctype: 'Issue', name: '{{trigger.doc.name}}', fields: '{"priority": "{{triage.priority}}", "custom_team": "{{triage.team}}", "custom_sentiment": "{{triage.sentiment}}"}' } },
+            { t: 'logic_condition', cfg: { expr: '"{{triage.priority}}" == "Urgent" or "{{triage.sentiment}}" == "angry"' } },
+            { t: 'int_slack',       cfg: { channel: '#support-urgent', message: '🚨 Urgent: <{{trigger.doc.name}}|{{trigger.doc.subject}}> from {{trigger.doc.raised_by}} (sentiment: {{triage.sentiment}})' } },
+        ],
+        trigger: { type: 'DocType Event', doctype: 'Issue', event: 'After Insert' },
+    },
+
+    po_anomaly: {
+        name: 'PO Anomaly Detector',
+        category: 'Purchase',
+        icon: 'ti-alert-triangle',
+        accent: '#F59E0B',
+        description: 'On every Purchase Order, use an AI agent to check unit rates against history and flag anomalies.',
+        nodes: [
+            { t: 'trigger_doctype', cfg: { doctype: 'Purchase Order', event: 'After Submit' } },
+            { t: 'ai_agent',        cfg: { task: 'Inspect the items on Purchase Order {{trigger.doc.name}}. For each item, compare its unit rate to the average of the last 5 Purchase Invoices for the same item_code. Flag items where the rate is more than 20% above the average. Reply with a short report.', allowed_doctypes: 'Purchase Order, Purchase Invoice, Item', can_write: 'false', max_iters: '8', output: 'anomaly_report' } },
+            { t: 'frappe_update',   cfg: { doctype: 'Purchase Order', name: '{{trigger.doc.name}}', fields: '{"custom_anomaly_report": "{{anomaly_report.text}}"}' } },
+        ],
+        trigger: { type: 'DocType Event', doctype: 'Purchase Order', event: 'After Submit' },
+    },
+
+    item_description: {
+        name: 'AI Item Description Writer',
+        category: 'Inventory',
+        icon: 'ti-package',
+        accent: '#10B981',
+        description: 'When a new Item is created without a description, generate a polished product description using AI.',
+        nodes: [
+            { t: 'trigger_doctype', cfg: { doctype: 'Item', event: 'After Insert' } },
+            { t: 'ai_llm',          cfg: { prompt: 'Write a clean 2-3 sentence product description for: {{trigger.doc.item_name}} ({{trigger.doc.item_group}}). Focus on what it does and who it\'s for. No fluff.', system: 'You write concise B2B product copy. No marketing-speak.', output: 'description' } },
+            { t: 'frappe_update',   cfg: { doctype: 'Item', name: '{{trigger.doc.name}}', fields: '{"description": "{{description}}"}' } },
+        ],
+        trigger: { type: 'DocType Event', doctype: 'Item', event: 'After Insert' },
+    },
+
+    weekly_report: {
+        name: 'Weekly AI Sales Report',
+        category: 'Sales',
+        icon: 'ti-chart-arrows',
+        accent: '#38BDF8',
+        description: 'Every Monday at 8am, fetch last week\'s Sales Invoices, generate an AI executive summary, and email leadership.',
+        nodes: [
+            { t: 'trigger_schedule', cfg: { cron: '0 8 * * 1' } },
+            { t: 'frappe_fetch',     cfg: { doctype: 'Sales Invoice', filters: '{"docstatus": 1, "posting_date": [">", "{{ frappe.utils.add_days(frappe.utils.nowdate(), -7) }}"]}', fields: 'name, customer, grand_total, posting_date', limit: '500', output: 'invoices' } },
+            { t: 'ai_llm',           cfg: { prompt: 'You are a sales analyst. Given last week\'s invoices below, write an executive summary covering: 1) total revenue, 2) top 3 customers by amount, 3) any unusual patterns. Be concise — 5 bullet points max.\n\n{% for inv in invoices %}- {{inv.name}} | {{inv.customer}} | ₹{{inv.grand_total}} | {{inv.posting_date}}\n{% endfor %}', output: 'weekly_summary' } },
+            { t: 'int_email',        cfg: { to: 'leadership@example.com', subject: 'Weekly Sales Summary — Week of {{ frappe.utils.nowdate() }}', body: '<div style="font-family:sans-serif">{{weekly_summary}}</div>' } },
+        ],
+        trigger: { type: 'Schedule', cron: '0 8 * * 1' },
+    },
+
+    delivery_confirm: {
+        name: 'Delivery WhatsApp Confirmation',
+        category: 'Logistics',
+        icon: 'ti-truck-delivery',
+        accent: '#10B981',
+        description: 'When a Delivery Note is submitted, send the customer a WhatsApp confirmation with order details.',
+        nodes: [
+            { t: 'trigger_doctype', cfg: { doctype: 'Delivery Note', event: 'After Submit' } },
+            { t: 'ai_llm',          cfg: { prompt: 'Compose a short, friendly WhatsApp delivery confirmation for {{trigger.doc.customer_name}}. Their order {{trigger.doc.name}} contains {{trigger.doc.total_qty}} items totalling ₹{{trigger.doc.grand_total}}. Keep it under 220 characters.', output: 'wa_message' } },
+            { t: 'int_whatsapp',    cfg: { to: '{{trigger.doc.contact_mobile}}', message: '{{wa_message}}' } },
+        ],
+        trigger: { type: 'DocType Event', doctype: 'Delivery Note', event: 'After Submit' },
+    },
+
+    quotation_followup: {
+        name: 'Quotation Follow-up Bot',
+        category: 'CRM',
+        icon: 'ti-mail-forward',
+        accent: '#F472B6',
+        description: 'Three days after a Quotation is sent, AI checks if it\'s still open and sends a personalised follow-up email.',
+        nodes: [
+            { t: 'trigger_schedule', cfg: { cron: '0 10 * * *' } },
+            { t: 'frappe_fetch',     cfg: { doctype: 'Quotation', filters: '{"status": "Open", "transaction_date": "{{ frappe.utils.add_days(frappe.utils.nowdate(), -3) }}"}', fields: 'name, customer_name, contact_email, grand_total, items', limit: '50', output: 'stale_quotes' } },
+            { t: 'logic_loop',       cfg: { items: '{{stale_quotes}}', item_var: 'quote', max_items: '50' } },
+            { t: 'ai_llm',           cfg: { prompt: 'Write a friendly 3-line follow-up email to {{quote.customer_name}} about their open quotation {{quote.name}} for ₹{{quote.grand_total}}. Be helpful, not pushy.', output: 'followup_body' } },
+            { t: 'int_email',        cfg: { to: '{{quote.contact_email}}', subject: 'Following up on {{quote.name}}', body: '{{followup_body}}' } },
+        ],
+        trigger: { type: 'Schedule', cron: '0 10 * * *' },
+    },
+
+    review_response: {
+        name: 'AI Review Responder',
+        category: 'Support',
+        icon: 'ti-message-circle',
+        accent: '#10B981',
+        description: 'Analyse the sentiment of new customer feedback / reviews and auto-draft a reply for human review.',
+        nodes: [
+            { t: 'trigger_doctype', cfg: { doctype: 'Communication', event: 'After Insert' } },
+            { t: 'ai_sentiment',    cfg: { text: '{{trigger.doc.content}}', output: 'sentiment' } },
+            { t: 'logic_condition', cfg: { expr: '"{{sentiment.sentiment}}" == "negative"' } },
+            { t: 'ai_llm',          cfg: { prompt: 'A customer left negative feedback. Draft a sincere 4-line response acknowledging the issue and offering next steps. Do not over-apologise.\n\nFeedback:\n{{trigger.doc.content}}', output: 'draft_reply' } },
+            { t: 'frappe_create',   cfg: { doctype: 'ToDo', values: '{"description": "Negative feedback from {{trigger.doc.sender}} — draft ready", "reference_type": "Communication", "reference_name": "{{trigger.doc.name}}", "priority": "High"}' } },
+        ],
+        trigger: { type: 'DocType Event', doctype: 'Communication', event: 'After Insert' },
     },
 };
 
@@ -354,9 +503,11 @@ window.flowagent_studio_html = function () {
     return `
     <div id="fa-app">
       <div class="fa-topbar">
-        <i class="ti ti-topology-star-3" style="font-size:16px;color:#534AB7"></i>
-        <span class="fa-topbar-title">FlowAgent Studio</span>
-        <span class="fa-topbar-badge">for Frappe</span>
+        <div class="fa-brand">
+            <span class="fa-brand-mark"><i class="ti ti-bolt"></i></span>
+            <span>FlowAgent</span>
+            <span class="fa-brand-tag">studio</span>
+        </div>
         <div class="fa-tb-sep"></div>
         <button class="fa-tb-btn" data-action="open">
             <i class="ti ti-folder-open"></i> Open</button>
@@ -364,8 +515,8 @@ window.flowagent_studio_html = function () {
             <i class="ti ti-plus"></i> New</button>
         <button class="fa-tb-btn" data-action="templates">
             <i class="ti ti-template"></i> Templates</button>
-        <button class="fa-tb-btn" data-action="clear">
-            <i class="ti ti-trash"></i> Clear</button>
+        <button class="fa-tb-btn" data-action="clear" title="Clear canvas">
+            <i class="ti ti-trash"></i></button>
         <div class="fa-tb-sep"></div>
         <label class="fa-tb-toggle">
             <input type="checkbox" id="fa-enabled-toggle">
@@ -390,10 +541,15 @@ window.flowagent_studio_html = function () {
             <svg class="fa-edges" id="fa-edges"></svg>
             <div id="fa-canvas"></div>
             <div class="fa-empty" id="fa-empty">
-                <div style="font-size:32px;color:#cfc9f0"><i class="ti ti-topology-star-3"></i></div>
-                <p>Drag nodes from the left</p>
-                <p style="margin-top:4px;font-size:11px;color:var(--text-muted)">
-                    or use <strong>AI Build</strong> →</p>
+                <div class="fa-empty-mark"><i class="ti ti-bolt"></i></div>
+                <h2>Build an AI workflow</h2>
+                <p>Drag nodes from the palette, start from a template, or describe what you want and let AI scaffold it for you.</p>
+                <div class="fa-empty-actions">
+                    <button class="fa-empty-btn fa-primary" data-action="templates">
+                        <i class="ti ti-template"></i> Browse templates</button>
+                    <button class="fa-empty-btn" data-action="open-ai-tab">
+                        <i class="ti ti-sparkles"></i> AI Build</button>
+                </div>
             </div>
         </div>
 
@@ -406,41 +562,43 @@ window.flowagent_studio_html = function () {
             </div>
 
             <div class="fa-panel-pane" id="fa-pane-config">
-                <div class="fa-panel-header"><i class="ti ti-adjustments"></i> Node config</div>
+                <div class="fa-panel-header"><i class="ti ti-adjustments-horizontal"></i> Node config</div>
                 <div class="fa-panel-body" id="fa-config-body">
                     <p class="fa-muted">Select a node to configure it</p>
                 </div>
             </div>
 
-            <div class="fa-panel-pane" id="fa-pane-ai" style="display:none">
-                <div class="fa-panel-header"><i class="ti ti-sparkles" style="color:#534AB7"></i> AI workflow builder</div>
+            <div class="fa-panel-pane fa-ai-pane" id="fa-pane-ai" style="display:none">
+                <div class="fa-panel-header"><i class="ti ti-sparkles"></i> AI workflow builder</div>
                 <div class="fa-ai-messages" id="fa-ai-messages"></div>
                 <div class="fa-ai-help">
-                    Describe a workflow:
-                    <a href="#" data-aip="When a Sales Invoice is submitted, extract key data with AI, check if amount > 50000, then send a WhatsApp approval request">→ Invoice approval flow</a>
-                    <a href="#" data-aip="Monitor new Lead, classify it with AI, update lead score and notify the sales team on Slack">→ Lead auto-qualify</a>
-                    <a href="#" data-aip="Every day at 9am fetch all overdue invoices, summarize with AI, email the digest to the accounts team">→ Daily digest</a>
+                    <div class="fa-ai-help-label">Try one of these</div>
+                    <a href="#" data-aip="When a Sales Invoice is submitted, extract key fields with AI, and if grand_total > 50000 send a WhatsApp approval request to the manager">→ Invoice approval flow</a>
+                    <a href="#" data-aip="When a new Lead is created, classify it as hot/warm/cold with AI and update the lead score">→ Lead auto-qualify</a>
+                    <a href="#" data-aip="Every weekday at 9am, fetch overdue invoices, summarize with AI, and email the accounts team">→ Daily digest</a>
                 </div>
                 <div class="fa-ai-input">
-                    <input type="text" id="fa-ai-input" placeholder="Describe your workflow…">
-                    <button class="fa-tb-btn fa-primary" data-action="ai-send">↗</button>
+                    <input type="text" id="fa-ai-input" placeholder="Describe a workflow…">
+                    <button data-action="ai-send">↗</button>
                 </div>
             </div>
 
             <div class="fa-panel-pane" id="fa-pane-runs" style="display:none">
-                <div class="fa-panel-header"><i class="ti ti-list"></i> Recent runs</div>
+                <div class="fa-panel-header"><i class="ti ti-list-details"></i> Recent runs</div>
                 <div class="fa-panel-body" id="fa-runs-body">
                     <p class="fa-muted">Save the workflow first to see runs</p>
                 </div>
             </div>
 
             <div class="fa-panel-pane" id="fa-pane-stats" style="display:none">
-                <div class="fa-panel-header"><i class="ti ti-chart-bar"></i> Stats</div>
-                <div class="fa-stats-grid">
-                    <div class="fa-stat"><div class="fa-sv" id="fa-stat-runs">0</div><div class="fa-sl">total runs</div></div>
-                    <div class="fa-stat"><div class="fa-sv" id="fa-stat-ok" style="color:#1D9E75">0</div><div class="fa-sl">success</div></div>
-                    <div class="fa-stat"><div class="fa-sv" id="fa-stat-err" style="color:#E24B4A">0</div><div class="fa-sl">errors</div></div>
-                    <div class="fa-stat"><div class="fa-sv" id="fa-stat-ms">—</div><div class="fa-sl">avg ms</div></div>
+                <div class="fa-panel-header"><i class="ti ti-chart-bar"></i> Performance</div>
+                <div class="fa-panel-body">
+                    <div class="fa-stats-grid">
+                        <div class="fa-stat"><div class="fa-sv" id="fa-stat-runs">0</div><div class="fa-sl">total runs</div></div>
+                        <div class="fa-stat"><div class="fa-sv" id="fa-stat-ok" style="color:var(--fa-success)">0</div><div class="fa-sl">success</div></div>
+                        <div class="fa-stat"><div class="fa-sv" id="fa-stat-err" style="color:var(--fa-danger)">0</div><div class="fa-sl">errors</div></div>
+                        <div class="fa-stat"><div class="fa-sv" id="fa-stat-ms">—</div><div class="fa-sl">avg ms</div></div>
+                    </div>
                 </div>
             </div>
 
@@ -542,14 +700,15 @@ function bindEvents() {
 
 function handleAction(name) {
     switch (name) {
-        case 'open':       return openDialog();
-        case 'new':        return newWorkflow();
-        case 'templates':  return templatesDialog();
-        case 'clear':      return clearCanvas(true);
-        case 'save':       return saveWorkflow();
-        case 'run':        return runWorkflow();
-        case 'ai-send':    return aiSend();
-        case 'diagnose':   return runDiagnose();
+        case 'open':         return openDialog();
+        case 'new':          return newWorkflow();
+        case 'templates':    return templatesDialog();
+        case 'clear':        return clearCanvas(true);
+        case 'save':         return saveWorkflow();
+        case 'run':          return runWorkflow();
+        case 'ai-send':      return aiSend();
+        case 'diagnose':     return runDiagnose();
+        case 'open-ai-tab':  return switchTab('ai');
     }
 }
 
@@ -827,9 +986,9 @@ function renderNode(n) {
     const branch = def.hasBranch;
 
     el.innerHTML = `
-        <div class="fa-node-head" style="background:${def.color}">
-            <div class="fa-node-icon" style="background:${def.iconColor}22">
-                <i class="ti ${def.icon}" style="color:${def.iconColor}"></i>
+        <div class="fa-node-head" style="color:${def.iconColor}">
+            <div class="fa-node-icon" style="background:${def.iconColor}22;color:${def.iconColor}">
+                <i class="ti ${def.icon}"></i>
             </div>
             <span class="fa-node-name">${frappe.utils.escape_html(def.label)}</span>
             <span class="fa-node-status" id="fa-ns-${n.id}"></span>
@@ -1031,7 +1190,7 @@ function renderConfigPanel() {
                 <i class="ti ti-trash"></i>
             </button>
         </div>
-        <div class="fa-muted" style="margin-bottom:8px;font-size:11px">ID: ${n.id}</div>
+        <div class="fa-cfg-id">${n.id} · ${n.type}</div>
     `;
     def.fields.forEach(f => {
         html += renderField(n.id, f, n.cfg[f.k]);
@@ -1248,21 +1407,103 @@ function applyAIWorkflow(parsed) {
 // Templates
 // ============================================================
 function templatesDialog() {
+    // Build the card grid HTML
+    const cards = Object.entries(TEMPLATES).map(([key, tpl]) => {
+        const nodeChips = tpl.nodes.map(n => {
+            const def = NODE_DEFS[n.t];
+            return def ? `<span class="fa-tpl-chip" style="color:${def.iconColor}">${frappe.utils.escape_html(def.label)}</span>` : '';
+        }).join('');
+        return `
+            <div class="fa-template-card" data-tpl="${key}"
+                 style="--accent:${tpl.accent};--accent-bg:${tpl.accent}22">
+                <div class="fa-tpl-icon"><i class="ti ${tpl.icon}"></i></div>
+                <div class="fa-tpl-title">${frappe.utils.escape_html(tpl.name)}</div>
+                <div class="fa-tpl-desc">${frappe.utils.escape_html(tpl.description)}</div>
+                <div class="fa-tpl-meta">
+                    <span class="fa-tpl-chip">${frappe.utils.escape_html(tpl.category)}</span>
+                    <span class="fa-tpl-chip">${tpl.nodes.length} nodes</span>
+                </div>
+            </div>`;
+    }).join('');
+
     const d = new frappe.ui.Dialog({
-        title: 'Start from a template',
+        title: '<i class="ti ti-template"></i>&nbsp; Start from a template',
+        size: 'extra-large',
         fields: [{
-            fieldname: 'pick', fieldtype: 'Select', label: 'Template',
-            options: Object.keys(TEMPLATES).map(k => `${k}\n`).join('').trim()
-                .split('\n').join('\n'),
-            reqd: 1,
+            fieldtype: 'HTML',
+            fieldname: 'grid',
+            options: `
+                <style>
+                .fa-templates-grid {
+                    display: grid; grid-template-columns: repeat(3, 1fr);
+                    gap: 14px; margin-top: 8px;
+                }
+                .fa-template-card {
+                    background: var(--bg-color, #f9fafb);
+                    border: 1px solid var(--border-color, #e5e7eb);
+                    border-radius: 10px;
+                    padding: 16px;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                    position: relative;
+                    overflow: hidden;
+                }
+                [data-theme="dark"] .fa-template-card {
+                    background: #1B1B1F;
+                    border-color: #2A2A30;
+                }
+                .fa-template-card::before {
+                    content: ''; position: absolute;
+                    top: 0; left: 0; right: 0; height: 3px;
+                    background: var(--accent);
+                }
+                .fa-template-card:hover {
+                    border-color: var(--accent);
+                    transform: translateY(-2px);
+                    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+                }
+                [data-theme="dark"] .fa-template-card:hover {
+                    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+                }
+                .fa-tpl-icon {
+                    width: 36px; height: 36px; border-radius: 8px;
+                    display: flex; align-items: center; justify-content: center;
+                    background: var(--accent-bg); color: var(--accent);
+                    font-size: 17px; margin-bottom: 10px;
+                }
+                .fa-tpl-title {
+                    font-size: 14px; font-weight: 600;
+                    margin-bottom: 5px;
+                }
+                .fa-tpl-desc {
+                    font-size: 12px; opacity: 0.7;
+                    line-height: 1.5; margin-bottom: 10px;
+                }
+                .fa-tpl-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+                .fa-tpl-chip {
+                    font-size: 10px;
+                    padding: 2px 8px; border-radius: 10px;
+                    background: rgba(0,0,0,0.06);
+                    text-transform: uppercase;
+                    letter-spacing: 0.04em;
+                    font-weight: 500;
+                }
+                [data-theme="dark"] .fa-tpl-chip { background: rgba(255,255,255,0.06); }
+                </style>
+                <div class="fa-templates-grid">${cards}</div>
+            `,
         }],
-        primary_action_label: 'Load',
-        primary_action: vals => {
-            d.hide();
-            loadTemplate(vals.pick);
-        },
     });
     d.show();
+
+    // Bind click handlers after the dialog body renders
+    setTimeout(() => {
+        d.$wrapper.find('.fa-template-card').on('click', function () {
+            const key = this.dataset.tpl;
+            d.hide();
+            loadTemplate(key);
+        });
+    }, 50);
 }
 
 function loadTemplate(key) {
@@ -1272,10 +1513,11 @@ function loadTemplate(key) {
     state.workflowName = tpl.name;
     document.getElementById('fa-wf-name').textContent = tpl.name;
     state.trigger = tpl.trigger || { type: 'Manual' };
+    // Lay out nodes left-to-right with extra horizontal space
     tpl.nodes.forEach((nd, idx) => {
-        addNode(nd.t, 30 + idx * 200, 150, nd.cfg);
+        addNode(nd.t, 40 + idx * 220, 160, nd.cfg);
     });
-    // chain them
+    // chain them — branch nodes use out-yes by default
     for (let i = 0; i < state.nodes.length - 1; i++) {
         const from = state.nodes[i], to = state.nodes[i + 1];
         if (from.def && from.def.hasBranch) {
@@ -1287,6 +1529,10 @@ function loadTemplate(key) {
     renderEdges();
     document.getElementById('fa-empty').style.display = 'none';
     addLog(`Loaded template "${tpl.name}"`, 'info');
+    frappe.show_alert({
+        message: `Loaded "${tpl.name}" — customise it and hit Save`,
+        indicator: 'blue',
+    }, 5);
 }
 
 // ============================================================
@@ -1400,14 +1646,15 @@ function saveThenRun() {
 
 function paintTrace(run) {
     // Reset all status dots
-    document.querySelectorAll('.fa-node-status').forEach(s => s.style.background = 'var(--border-color)');
+    document.querySelectorAll('.fa-node-status').forEach(s => {
+        s.removeAttribute('data-status');
+        s.style.background = '';
+    });
     state.edges.forEach(e => e.runHighlight = false);
     (run.steps || []).forEach(step => {
         const dot = document.getElementById('fa-ns-' + step.node_id);
         if (dot) {
-            dot.style.background = step.status === 'Success' ? '#1D9E75'
-                : step.status === 'Failed' ? '#E24B4A'
-                : '#BA7517';
+            dot.setAttribute('data-status', step.status);
         }
         addLog(`#${step.step_index} ${step.node_label} → ${step.status}${step.error ? ' — ' + (step.error || '').split('\n')[0] : ''} (${step.duration_ms}ms)`,
                step.status === 'Success' ? 'ok' : step.status === 'Failed' ? 'err' : 'warn');
