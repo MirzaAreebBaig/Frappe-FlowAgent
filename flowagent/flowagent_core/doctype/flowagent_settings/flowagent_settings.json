@@ -16,7 +16,9 @@
   "run_retention_days",
   "section_webhook",
   "webhook_secret",
-  "regenerate_webhook_secret"
+  "regenerate_webhook_secret",
+  "section_debug",
+  "verbose_logging"
  ],
  "fields": [
   {
@@ -95,6 +97,18 @@
    "fieldname": "regenerate_webhook_secret",
    "fieldtype": "Button",
    "label": "Regenerate Secret"
+  },
+  {
+   "fieldname": "section_debug",
+   "fieldtype": "Section Break",
+   "label": "Diagnostics"
+  },
+  {
+   "default": "0",
+   "description": "Log every doc-event dispatch decision to bench logs (tail with `bench logs -f`). Useful when a workflow won't fire and you can't figure out why. Turn off in production.",
+   "fieldname": "verbose_logging",
+   "fieldtype": "Check",
+   "label": "Verbose Logging"
   }
  ],
  "index_web_pages_for_search": 0,
