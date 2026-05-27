@@ -135,6 +135,10 @@ def _verify_index(doc):
     """Return a small dict describing whether the trigger is actually
     registered for event firing. The Studio shows this in a toast after
     save so misconfigurations are immediately visible.
+
+    If the row is missing despite the workflow being enabled and properly
+    configured, this attempts one auto-recovery rebuild so a transient
+    failure in after_save doesn't leave the user stuck.
     """
     if not doc.enabled:
         return {"ok": True, "registered": False, "reason": "Workflow is disabled"}
@@ -143,20 +147,70 @@ def _verify_index(doc):
             "ok": True, "registered": True,
             "reason": f"{doc.trigger_type} trigger (no index row needed)",
         }
-    row = frappe.db.get_value(
-        "FlowAgent Workflow Trigger Index",
-        {"workflow": doc.name},
-        ["trigger_doctype", "trigger_event"],
-        as_dict=True,
-    )
+
+    # Workflow itself must have populated trigger fields, otherwise it's
+    # a frontend bug we should surface plainly.
+    if not doc.trigger_doctype:
+        return {
+            "ok": False, "registered": False,
+            "reason": "trigger_doctype is empty on the workflow. Re-pick "
+                      "the DocType on the trigger node (don't just type — "
+                      "select from the autocomplete) and save again.",
+        }
+    if not doc.trigger_event:
+        return {
+            "ok": False, "registered": False,
+            "reason": "trigger_event is empty on the workflow. Pick an "
+                      "event from the dropdown on the trigger node.",
+        }
+
+    def _lookup_row():
+        return frappe.db.get_value(
+            "FlowAgent Workflow Trigger Index",
+            {"workflow": doc.name},
+            ["trigger_doctype", "trigger_event"],
+            as_dict=True,
+        )
+
+    row = _lookup_row()
     if row and row.trigger_doctype and row.trigger_event:
         return {
             "ok": True, "registered": True,
             "reason": f"Listening on {row.trigger_doctype} / {row.trigger_event}",
         }
+
+    # Auto-recovery: try one explicit rebuild. This catches cases where
+    # after_save ran in a way that didn't persist (e.g. nested savepoint
+    # rollback). Anything still failing here is a real bug, captured in
+    # the error log.
+    try:
+        from ..flowagent_core.doctype.flowagent_workflow.flowagent_workflow import (
+            _rebuild_trigger_index,
+        )
+        _rebuild_trigger_index(doc)
+        frappe.db.commit()
+        row = _lookup_row()
+        if row and row.trigger_doctype and row.trigger_event:
+            return {
+                "ok": True, "registered": True,
+                "reason": f"Listening on {row.trigger_doctype} / {row.trigger_event} (auto-recovered)",
+            }
+    except Exception as e:
+        frappe.log_error(
+            title="FlowAgent: auto-recovery rebuild failed",
+            message=f"{type(e).__name__}: {e}\nWorkflow: {doc.name}\n"
+                    f"trigger_doctype={doc.trigger_doctype!r}\n"
+                    f"trigger_event={doc.trigger_event!r}\n"
+                    f"enabled={doc.enabled}",
+        )
+        return {
+            "ok": False, "registered": False,
+            "reason": f"Index rebuild failed: {type(e).__name__}: {e}",
+        }
+
     return {
         "ok": False, "registered": False,
-        "reason": "Index row missing. Disable & re-enable, or check Diagnose.",
+        "reason": "Index row could not be created. Check Error Log for details.",
     }
 
 

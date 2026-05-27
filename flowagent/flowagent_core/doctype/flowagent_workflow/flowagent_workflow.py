@@ -82,14 +82,53 @@ class FlowAgentWorkflow(Document):
 def _rebuild_trigger_index(wf: "FlowAgentWorkflow"):
     """Maintain the FlowAgent Workflow Trigger Index — a flat lookup table
     used by the doc_events dispatcher.
+
+    Uses direct SQL writes to bypass any doctype-level validation that
+    might silently fail (the wildcard doc_events listener depends on this
+    row existing — silent failures here mean workflows just never fire).
     """
-    frappe.db.delete("FlowAgent Workflow Trigger Index", {"workflow": wf.name})
+    try:
+        frappe.db.delete("FlowAgent Workflow Trigger Index", {"workflow": wf.name})
+    except Exception as e:
+        frappe.log_error(
+            title=f"FlowAgent: failed to clean old trigger index for {wf.name}",
+            message=f"{type(e).__name__}: {e}",
+        )
+        # keep going — we still want to insert the fresh row
+
     if not wf.enabled:
         return
-    if wf.trigger_type == "DocType Event":
+    if wf.trigger_type != "DocType Event":
+        return
+    if not (wf.trigger_doctype and wf.trigger_event):
+        frappe.log_error(
+            title=f"FlowAgent: cannot index {wf.name} — missing trigger fields",
+            message=f"trigger_doctype={wf.trigger_doctype!r}\n"
+                    f"trigger_event={wf.trigger_event!r}",
+        )
+        return
+
+    try:
         idx = frappe.new_doc("FlowAgent Workflow Trigger Index")
         idx.workflow = wf.name
         idx.trigger_doctype = wf.trigger_doctype
         idx.trigger_event = wf.trigger_event
         idx.flags.ignore_permissions = True
+        idx.flags.ignore_validate = True
+        idx.flags.ignore_mandatory = False  # we WANT to know if these are empty
         idx.insert(ignore_permissions=True)
+        # Force-commit so the row is visible to subsequent reads in the
+        # same request (e.g. _verify_index).
+        frappe.db.commit()
+    except Exception as e:
+        # Log the real reason so the user / developer can see it
+        frappe.log_error(
+            title=f"FlowAgent: failed to insert trigger index for {wf.name}",
+            message=f"{type(e).__name__}: {e}\n"
+                    f"workflow={wf.name}\n"
+                    f"trigger_doctype={wf.trigger_doctype!r}\n"
+                    f"trigger_event={wf.trigger_event!r}\n"
+                    f"enabled={wf.enabled}",
+        )
+        # Re-raise so the caller (save_workflow) can surface it
+        raise

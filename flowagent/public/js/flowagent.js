@@ -696,6 +696,7 @@ function saveWorkflow() {
         state.workflowName = n;
         document.getElementById('fa-wf-name').textContent = n;
     }
+    syncAllControls();  // ensure latest Link-control values are written back
     state.trigger = inferTriggerFromCanvas();
 
     // If user wants this enabled, make sure the trigger is well-formed —
@@ -1054,6 +1055,10 @@ function renderConfigPanel() {
     });
 
     // Link fields — mount real Frappe Link controls with autocomplete.
+    // We keep refs to each control on the node so saveWorkflow() can
+    // force-read their current values (Frappe's Link controls fire 'change'
+    // on blur, which may not have happened by the time the user clicks Save).
+    n._linkControls = n._linkControls || {};
     def.fields.filter(f => f.t === 'link').forEach(f => {
         const slot = body.querySelector(`[data-link-slot="${f.k}"]`);
         if (!slot) return;
@@ -1069,21 +1074,41 @@ function renderConfigPanel() {
             render_input: true,
         });
         ctrl.set_value(n.cfg[f.k] || '');
-        ctrl.$input.on('change awesomplete-selectcomplete', () => {
-            n.cfg[f.k] = ctrl.get_value();
+        n._linkControls[f.k] = ctrl;
+
+        // Multiple events to catch every value-change moment Frappe might emit
+        const sync = () => {
+            n.cfg[f.k] = ctrl.get_value() || '';
             renderNode(n);
-            // If the user just picked a doctype on a trigger node, refresh
-            // the toolbar's trigger indicator.
             if (n.type === 'trigger_doctype' || n.type === 'frappe_create' ||
                 n.type === 'frappe_update' || n.type === 'frappe_fetch' ||
                 n.type === 'frappe_submit') {
                 refreshTriggerIndicator();
             }
+        };
+        ctrl.$input.on('change blur awesomplete-selectcomplete awesomplete-close', sync);
+        // Also sync on every keystroke so partial values aren't lost
+        ctrl.$input.on('input', () => {
+            n.cfg[f.k] = ctrl.$input.val() || '';
         });
     });
 
     const delBtn = body.querySelector('[data-action="delete-node"]');
     if (delBtn) delBtn.addEventListener('click', () => deleteNode(n.id));
+}
+
+// Force-read every Link control's current value back into the node's cfg.
+// Called at save time as a safety net in case a change/blur event didn't fire.
+function syncAllControls() {
+    state.nodes.forEach(n => {
+        if (!n._linkControls) return;
+        Object.entries(n._linkControls).forEach(([k, ctrl]) => {
+            try {
+                const v = ctrl.get_value() || ctrl.$input?.val() || '';
+                if (v !== undefined) n.cfg[k] = v;
+            } catch (_) {}
+        });
+    });
 }
 
 function renderField(nodeId, f, val) {
@@ -1352,6 +1377,7 @@ function saveThenRun() {
         state.workflowName = n;
         document.getElementById('fa-wf-name').textContent = n;
     }
+    syncAllControls();
     state.trigger = inferTriggerFromCanvas();
     const payload = {
         workflow_name: state.workflowName,
@@ -1439,6 +1465,7 @@ function openRun(name) {
 function refreshTriggerIndicator() {
     const el = document.getElementById('fa-trigger-indicator');
     if (!el) return;
+    syncAllControls();
     const trig = inferTriggerFromCanvas();
     const enabled = state.enabled;
     let txt = '';
