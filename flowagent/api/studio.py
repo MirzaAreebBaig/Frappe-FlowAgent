@@ -118,7 +118,46 @@ def save_workflow(payload: str):
     doc.flags.ignore_permissions = False
     doc.save()
     frappe.db.commit()
-    return {"name": doc.name, "modified": str(doc.modified)}
+
+    # Verify the trigger index row got written. If the workflow is enabled
+    # and DocType-event triggered, there MUST be a corresponding row in
+    # FlowAgent Workflow Trigger Index for events to fire. This catches
+    # cases where a hook ran but didn't write the row.
+    index_status = _verify_index(doc)
+    return {
+        "name": doc.name,
+        "modified": str(doc.modified),
+        "index_status": index_status,
+    }
+
+
+def _verify_index(doc):
+    """Return a small dict describing whether the trigger is actually
+    registered for event firing. The Studio shows this in a toast after
+    save so misconfigurations are immediately visible.
+    """
+    if not doc.enabled:
+        return {"ok": True, "registered": False, "reason": "Workflow is disabled"}
+    if doc.trigger_type != "DocType Event":
+        return {
+            "ok": True, "registered": True,
+            "reason": f"{doc.trigger_type} trigger (no index row needed)",
+        }
+    row = frappe.db.get_value(
+        "FlowAgent Workflow Trigger Index",
+        {"workflow": doc.name},
+        ["trigger_doctype", "trigger_event"],
+        as_dict=True,
+    )
+    if row and row.trigger_doctype and row.trigger_event:
+        return {
+            "ok": True, "registered": True,
+            "reason": f"Listening on {row.trigger_doctype} / {row.trigger_event}",
+        }
+    return {
+        "ok": False, "registered": False,
+        "reason": "Index row missing. Disable & re-enable, or check Diagnose.",
+    }
 
 
 @frappe.whitelist()

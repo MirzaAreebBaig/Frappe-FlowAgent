@@ -95,10 +95,27 @@ class Runner:
             trigger_node = self._find_trigger_node()
             if not trigger_node:
                 raise WorkflowRunError("", "Workflow has no trigger node")
-            self.context = Context(seed={
-                "trigger": self.payload,
-                **self.payload,  # also flatten so {{doc_name}} works directly
-            })
+            # Build a context where templates can address the trigger data
+            # in three convenient ways:
+            #   {{trigger.doc.field}}    — explicit path through payload
+            #   {{trigger.field}}        — short alias when the trigger is a
+            #                              doctype event (doc fields lifted up)
+            #   {{doc.field}}, {{field}} — also lifted to the top level
+            doc = self.payload.get("doc") or {}
+            trigger_ns = dict(self.payload)  # {doc, doc_name, doctype, event, user, ...}
+            if isinstance(doc, dict):
+                # Lift doc fields under trigger.* without overwriting structural keys
+                for k, v in doc.items():
+                    trigger_ns.setdefault(k, v)
+            seed = {
+                "trigger": trigger_ns,
+                **self.payload,  # also flatten so {{doc_name}}, {{doc}}, etc. work
+            }
+            # Also expose top-level doc fields so {{customer_name}} works directly
+            if isinstance(doc, dict):
+                for k, v in doc.items():
+                    seed.setdefault(k, v)
+            self.context = Context(seed=seed)
             self._walk(trigger_node["id"])
             self._finalise("Success")
         except WorkflowRunError as e:
@@ -184,9 +201,13 @@ class Runner:
         node_label = node.get("def", {}).get("label") or node.get("label") or node_type
         cfg = node.get("cfg", {})
 
-        # Interpolate every config value through Jinja against current context
+        # Interpolate every config value through Jinja against current context.
+        # Collect undefined-variable warnings so we can surface them in the
+        # step trace — silent empty renders were the #1 source of "why did
+        # my workflow do nothing" bug reports.
+        render_warnings: list[str] = []
         try:
-            rendered_cfg = self._render_cfg(cfg)
+            rendered_cfg = self._render_cfg(cfg, warnings=render_warnings)
         except Exception as e:
             self._record_step(step_index, node, "Failed", error=f"Template error: {e}")
             return self._handle_error(node_id, f"Template error: {e}")
@@ -234,7 +255,8 @@ class Runner:
                 self._record_step(step_index, node, "Success",
                                  duration_ms=ms,
                                  input_snapshot=rendered_cfg,
-                                 output_snapshot=output_value)
+                                 output_snapshot=output_value,
+                                 error=("⚠ " + "; ".join(render_warnings)) if render_warnings else "")
                 return output_port
             except Exception as e:
                 ms = int((time.monotonic() - step_start) * 1000)
@@ -249,12 +271,16 @@ class Runner:
                                  error=f"{type(e).__name__}: {e}\n{tb}")
                 return self._handle_error(node_id, f"{type(e).__name__}: {e}")
 
-    def _render_cfg(self, cfg: dict) -> dict:
-        """Interpolate Jinja placeholders in every string value of the cfg dict."""
+    def _render_cfg(self, cfg: dict, warnings: list | None = None) -> dict:
+        """Interpolate Jinja placeholders in every string value of the cfg dict.
+
+        If ``warnings`` is passed, undefined-variable warnings collected
+        during rendering are appended to it.
+        """
         out = {}
         for k, v in cfg.items():
             if isinstance(v, str):
-                out[k] = render(v, self.context.data)
+                out[k] = render(v, self.context.data, warnings=warnings)
             else:
                 out[k] = v
         return out

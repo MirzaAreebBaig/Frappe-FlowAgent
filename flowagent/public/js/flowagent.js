@@ -734,7 +734,28 @@ function saveWorkflow() {
                 state.currentWorkflow = r.message.name;
                 addLog(`Saved "${state.workflowName}"`, 'ok');
                 refreshTriggerIndicator();
-                frappe.show_alert({ message: 'Workflow saved', indicator: 'green' });
+                // Surface trigger-registration status so the user knows
+                // whether the workflow is actually listening.
+                const idx = r.message.index_status || {};
+                if (idx.ok && idx.registered) {
+                    frappe.show_alert({
+                        message: `Saved — ${idx.reason}`,
+                        indicator: 'green',
+                    }, 5);
+                    addLog(idx.reason, 'ok');
+                } else if (idx.ok && !idx.registered) {
+                    frappe.show_alert({
+                        message: `Saved — ${idx.reason}`,
+                        indicator: 'orange',
+                    }, 5);
+                    addLog(idx.reason, 'warn');
+                } else {
+                    frappe.show_alert({
+                        message: `⚠ ${idx.reason || 'Trigger not registered'}`,
+                        indicator: 'red',
+                    }, 8);
+                    addLog(idx.reason || 'Trigger not registered', 'err');
+                }
             }
         },
         error: err => addLog('Save failed: ' + (err.message || err), 'err'),

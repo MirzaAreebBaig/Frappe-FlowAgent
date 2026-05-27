@@ -45,7 +45,7 @@ class Context:
         return _json_safe(self.data)
 
 
-def render(template: str, data: dict) -> str:
+def render(template: str, data: dict, warnings: list | None = None) -> str:
     """Render a Jinja template against the context dict.
 
     Uses ``frappe.render_template`` (Frappe's sandboxed Jinja2), so:
@@ -61,6 +61,10 @@ def render(template: str, data: dict) -> str:
     no subprocess. A whitelisted set of helpers (``frappe.utils.*``) is
     exposed. For complex logic, the ``tf_code`` node remains the right
     choice.
+
+    If ``warnings`` is provided, any top-level variable referenced in the
+    template that isn't present in ``data`` is appended to it. This makes
+    silent "renders to empty" cases discoverable in the step trace.
     """
     if not template or not isinstance(template, str):
         return template
@@ -68,6 +72,10 @@ def render(template: str, data: dict) -> str:
     # If the string has no Jinja markers, fast-path return it.
     if "{{" not in template and "{%" not in template:
         return template
+
+    # Pre-flight: collect undefined top-level variable references
+    if warnings is not None:
+        _collect_undefined_warnings(template, data, warnings)
 
     try:
         return frappe.render_template(template, data)
@@ -80,6 +88,34 @@ def render(template: str, data: dict) -> str:
             message=f"{type(e).__name__}: {e}\n\nTemplate:\n{template[:1000]}",
         )
         return f"[render error: {e}]"
+
+
+def _collect_undefined_warnings(template: str, data: dict, warnings: list):
+    """Scan a Jinja template for top-level identifier references and
+    flag any that are missing from ``data``. Only does a shallow scan;
+    we're not parsing Jinja — just catching obvious typos like
+    ``{{trigger.candidate_skills}}`` when the user meant
+    ``{{trigger.doc.candidate_skills}}``.
+    """
+    import re as _re
+    # Find {{name…}} and {% for x in name… %} references
+    found_names = set()
+    for m in _re.finditer(r"\{\{\s*([A-Za-z_][A-Za-z_0-9]*)", template):
+        found_names.add(m.group(1))
+    for m in _re.finditer(r"\{%\s*(?:if|elif|for\s+\w+\s+in)\s+([A-Za-z_][A-Za-z_0-9]*)", template):
+        found_names.add(m.group(1))
+
+    # Jinja built-ins / loop helpers we should never warn about
+    builtins = {"loop", "range", "true", "false", "none", "True", "False", "None",
+                "self", "_", "varargs", "kwargs"}
+
+    for name in found_names:
+        if name in builtins:
+            continue
+        if name not in data:
+            msg = f"Template references '{name}' but it's not in the run context"
+            if msg not in warnings:
+                warnings.append(msg)
 
 
 def _json_safe(value: Any) -> Any:
