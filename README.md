@@ -13,7 +13,11 @@ Native to Frappe — no external service, no separate runtime, no monthly bill.
 
 </div>
 
+
+
 ---
+> **⚠️ Beta Notice**
+> FlowAgent is currently in **beta** and under active development. Features, APIs, and workflow behaviors may change between releases. Expect bugs, missing features, and occasional breaking changes while the platform evolves. Feedback, testing, and contributions are highly appreciated.
 
 ## What it does
 
