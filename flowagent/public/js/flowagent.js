@@ -787,13 +787,13 @@ window.flowagent_studio_html = function () {
         </div>
         <div class="fa-tb-sep"></div>
 
-        <!-- Workflow menu — consolidates Open / New / Save as Template / Import / Bulk run / Clear -->
-        <div class="fa-tb-menu" data-menu="workflow">
-            <button class="fa-tb-btn fa-tb-menu-btn" data-action="toggle-menu" data-menu-target="workflow">
-                <i class="ti ti-stack"></i> Workflow
+        <!-- Options menu — every non-canvas workflow action lives here -->
+        <div class="fa-tb-menu" data-menu="options">
+            <button class="fa-tb-btn fa-tb-menu-btn" data-action="toggle-menu" data-menu-target="options">
+                <i class="ti ti-menu-2"></i> Options
                 <i class="ti ti-chevron-down fa-tb-menu-chevron"></i>
             </button>
-            <div class="fa-tb-menu-dropdown" id="fa-menu-workflow">
+            <div class="fa-tb-menu-dropdown" id="fa-menu-options">
                 <div class="fa-tb-menu-section">File</div>
                 <button class="fa-tb-menu-item" data-action="open">
                     <i class="ti ti-folder-open"></i><span>Open workflow…</span>
@@ -804,11 +804,19 @@ window.flowagent_studio_html = function () {
                 </button>
                 <div class="fa-tb-menu-divider"></div>
                 <div class="fa-tb-menu-section">Templates</div>
+                <button class="fa-tb-menu-item" data-action="templates">
+                    <i class="ti ti-template"></i><span>Browse templates…</span>
+                </button>
                 <button class="fa-tb-menu-item" data-action="save-as-template">
                     <i class="ti ti-bookmark-plus"></i><span>Save as template</span>
                 </button>
                 <button class="fa-tb-menu-item" data-action="import-template">
                     <i class="ti ti-upload"></i><span>Import template…</span>
+                </button>
+                <div class="fa-tb-menu-divider"></div>
+                <div class="fa-tb-menu-section">History</div>
+                <button class="fa-tb-menu-item" data-action="versions">
+                    <i class="ti ti-history"></i><span>Versions…</span>
                 </button>
                 <div class="fa-tb-menu-divider"></div>
                 <div class="fa-tb-menu-section">Tools</div>
@@ -824,11 +832,6 @@ window.flowagent_studio_html = function () {
                 </button>
             </div>
         </div>
-
-        <button class="fa-tb-btn" data-action="templates">
-            <i class="ti ti-template"></i> Templates</button>
-        <button class="fa-tb-btn" data-action="versions" title="Workflow history (auto-saved on every Save)">
-            <i class="ti ti-history"></i> Versions</button>
 
         <div class="fa-tb-sep"></div>
 
@@ -2487,11 +2490,36 @@ function renderEdges() {
         const tp = portXY(to, 'in');
         const dx = (tp.x - fp.x) / 2;
         const d = `M${fp.x},${fp.y} C${fp.x + dx},${fp.y} ${tp.x - dx},${tp.y} ${tp.x},${tp.y}`;
+
+        // Base path — always rendered. Gets the .fa-edge-active class for
+        // edges between completed nodes (steady highlight).
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', d);
         path.setAttribute('class', 'fa-edge-path');
         if (e.runHighlight) path.classList.add('fa-edge-active');
+        if (e.runActive)    path.classList.add('fa-edge-running-base');
         svg.appendChild(path);
+
+        // Animated overlay — only on edges feeding into the next-to-fire
+        // node. Two parts: a flowing dashed line, and a small bright dot
+        // travelling along the path.
+        if (e.runActive) {
+            const flow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            flow.setAttribute('d', d);
+            flow.setAttribute('class', 'fa-edge-running-flow');
+            svg.appendChild(flow);
+
+            const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            dot.setAttribute('r', '4');
+            dot.setAttribute('class', 'fa-edge-running-dot');
+            const motion = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
+            motion.setAttribute('dur', '1.2s');
+            motion.setAttribute('repeatCount', 'indefinite');
+            motion.setAttribute('path', d);
+            motion.setAttribute('rotate', 'auto');
+            dot.appendChild(motion);
+            svg.appendChild(dot);
+        }
     });
 }
 
@@ -3231,12 +3259,18 @@ function executeRun(payload) {
     const dry = state.testMode ? 1 : 0;
     addLog(dry ? 'Test run (dry, no writes)…' : 'Running…', 'info');
 
-    // Reset node status dots and clear any old run state on the canvas
+    // Reset node status dots, warning badges, and any leftover run-state
+    // classes from a previous run so the canvas starts clean.
     document.querySelectorAll('.fa-node-status').forEach(s => {
         s.removeAttribute('data-status');
         s.style.background = '';
     });
     document.querySelectorAll('.fa-node-warn-badge').forEach(b => b.remove());
+    document.querySelectorAll('.fa-wf-node').forEach(n => {
+        n.classList.remove('fa-node-running', 'fa-node-completed', 'fa-node-failed');
+    });
+    state.edges.forEach(e => { e.runHighlight = false; e.runActive = false; });
+    renderEdges();
 
     // Show the Trace tab immediately with a "running" placeholder so the
     // user knows things are happening even before the first step lands.
@@ -3410,19 +3444,39 @@ function saveThenRun() {
 }
 
 function paintTrace(run) {
-    // Reset all status dots + warning badges
+    // Reset all status dots + warning badges + run-state classes
     document.querySelectorAll('.fa-node-status').forEach(s => {
         s.removeAttribute('data-status');
         s.style.background = '';
     });
     document.querySelectorAll('.fa-node-warn-badge').forEach(b => b.remove());
+    document.querySelectorAll('.fa-wf-node').forEach(n => {
+        n.classList.remove('fa-node-running', 'fa-node-completed', 'fa-node-failed');
+    });
 
-    state.edges.forEach(e => e.runHighlight = false);
-    (run.steps || []).forEach(step => {
+    state.edges.forEach(e => {
+        e.runHighlight = false;
+        e.runActive = false;
+    });
+
+    const steps = run.steps || [];
+    const completedIds = new Set();
+    let lastFailedId = null;
+
+    steps.forEach(step => {
         const nodeEl = document.getElementById('fa-node-' + step.node_id);
         const dot = document.getElementById('fa-ns-' + step.node_id);
         if (dot) {
             dot.setAttribute('data-status', step.status);
+        }
+        if (nodeEl) {
+            if (step.status === 'Success') {
+                nodeEl.classList.add('fa-node-completed');
+                completedIds.add(step.node_id);
+            } else if (step.status === 'Failed' || step.status === 'Timeout') {
+                nodeEl.classList.add('fa-node-failed');
+                lastFailedId = step.node_id;
+            }
         }
         // Render warnings appear in step.error prefixed with '⚠' even on Success.
         // Surface them as a small badge on the node so users can see at a glance
@@ -3437,6 +3491,45 @@ function paintTrace(run) {
         addLog(`#${step.step_index} ${step.node_label} → ${step.status}${step.error ? ' — ' + (step.error || '').split('\n')[0] : ''} (${step.duration_ms}ms)`,
                step.status === 'Success' ? (step.error ? 'warn' : 'ok') : step.status === 'Failed' ? 'err' : 'warn');
     });
+
+    // Mark edges between completed nodes as run-highlighted (steady glow).
+    state.edges.forEach(e => {
+        if (completedIds.has(e.from) && completedIds.has(e.to)) {
+            e.runHighlight = true;
+        }
+    });
+
+    // While the run is still in flight, figure out which node(s) are
+    // *about* to fire (or are firing right now). That's: the downstream
+    // targets of the most recently completed step that haven't themselves
+    // recorded a step yet. Highlight those nodes + the edges leading to
+    // them with the "running" animation.
+    const runIsLive = run.status === 'Running' || run.status === 'Queued';
+    if (runIsLive && steps.length > 0) {
+        const recordedIds = new Set(steps.map(s => s.node_id));
+        const lastStep = steps[steps.length - 1];
+        const lastPort = (lastStep.output && typeof lastStep.output === 'object' && lastStep.output._dry_run)
+            ? null  // dry-run doesn't tell us which branch was taken; just highlight all
+            : null; // we don't have port info on the step yet — light all outgoing edges
+
+        state.edges.forEach(e => {
+            if (e.from === lastStep.node_id && !recordedIds.has(e.to)) {
+                e.runActive = true;
+                const nextNode = document.getElementById('fa-node-' + e.to);
+                if (nextNode) nextNode.classList.add('fa-node-running');
+            }
+        });
+    } else if (runIsLive && steps.length === 0) {
+        // No steps recorded yet — the trigger node is about to fire.
+        // Highlight any trigger-type nodes on the canvas as "running".
+        state.nodes.forEach(n => {
+            if (n.type && n.type.startsWith('trigger_')) {
+                const el = document.getElementById('fa-node-' + n.id);
+                if (el) el.classList.add('fa-node-running');
+            }
+        });
+    }
+
     renderEdges();
     renderTracePane(run);
 }
@@ -3761,28 +3854,37 @@ function refreshTriggerIndicator() {
     const trig = inferTriggerFromCanvas();
     const enabled = state.enabled;
     let txt = '';
+    let title = '';
     let cls = 'fa-trigger-pill';
     if (!enabled) {
-        txt = '○ Disabled';
+        txt = 'Disabled';
+        title = 'Workflow is disabled';
         cls += ' fa-trigger-off';
     } else if (trig.type === 'DocType Event' && trig.doctype && trig.event) {
-        txt = `● Listening: ${trig.doctype} / ${trig.event}`;
+        // Compact: just the doctype name. Full event detail in tooltip.
+        txt = trig.doctype;
+        title = `Listening: ${trig.doctype} / ${trig.event}`;
         cls += ' fa-trigger-on';
     } else if (trig.type === 'Schedule' && trig.cron) {
-        txt = `● Schedule: ${trig.cron}`;
+        txt = 'Schedule';
+        title = `Schedule: ${trig.cron}`;
         cls += ' fa-trigger-on';
     } else if (trig.type === 'Webhook') {
-        txt = '● Webhook ready';
+        txt = 'Webhook';
+        title = 'Webhook trigger active';
         cls += ' fa-trigger-on';
     } else if (trig.type === 'Manual') {
-        txt = '○ Manual';
+        txt = 'Manual';
+        title = 'Manual trigger only';
         cls += ' fa-trigger-off';
     } else {
-        txt = '⚠ Trigger incomplete';
+        txt = 'Setup';
+        title = 'Trigger configuration incomplete';
         cls += ' fa-trigger-warn';
     }
     el.textContent = txt;
     el.className = cls;
+    el.title = title;
 }
 
 function refreshStats() {

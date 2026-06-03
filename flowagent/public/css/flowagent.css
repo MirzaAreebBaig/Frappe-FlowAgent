@@ -168,25 +168,53 @@
 
 .fa-trigger-pill {
     font-family: var(--fa-font-mono);
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 500;
-    padding: 5px 11px;
+    padding: 4px 9px 4px 22px;
     border-radius: 20px;
     border: 1px solid var(--fa-border);
     background: var(--fa-surface);
     color: var(--fa-text-dim);
     letter-spacing: -0.005em;
     white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: relative;
+    cursor: default;
+}
+/* Status dot via pseudo-element keeps text clean and gives it color */
+.fa-trigger-pill::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--fa-border-strong);
 }
 .fa-trigger-on {
     background: rgba(16, 185, 129, 0.1);
     color: #047857;
     border-color: rgba(16, 185, 129, 0.3);
 }
+.fa-trigger-on::before {
+    background: var(--fa-success);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.18);
+    animation: fa-trigger-pulse 2.4s ease-in-out infinite;
+}
 .fa-trigger-warn {
     background: rgba(245, 158, 11, 0.1);
     color: #B45309;
     border-color: rgba(245, 158, 11, 0.3);
+}
+.fa-trigger-warn::before { background: var(--fa-warn); }
+
+@keyframes fa-trigger-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.18); }
+    50%      { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.32); }
 }
 
 .fa-spacer { flex: 1; }
@@ -201,6 +229,10 @@
     border-radius: 7px;
     border: 1px solid transparent;
     transition: all 0.12s;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 #fa-wf-name:hover {
     background: var(--fa-surface-2);
@@ -1908,4 +1940,87 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
 }
 .fa-cfg-advanced-body {
     margin-top: 8px;
+}
+
+/* =================================================================
+   n8n-style run animation — currently-running node pulse + flowing
+   edge dot. Only applied while the run is live; cleared on terminal.
+   ================================================================= */
+
+/* The actively-running node: soft glow that pulses to draw the eye */
+.fa-wf-node.fa-node-running {
+    box-shadow:
+        0 0 0 1.5px var(--fa-accent),
+        0 0 0 6px rgba(99, 102, 241, 0.15),
+        0 4px 16px rgba(99, 102, 241, 0.25);
+    animation: fa-node-pulse 1.4s ease-in-out infinite;
+    z-index: 3;
+}
+@keyframes fa-node-pulse {
+    0%, 100% {
+        box-shadow:
+            0 0 0 1.5px var(--fa-accent),
+            0 0 0 6px rgba(99, 102, 241, 0.15),
+            0 4px 16px rgba(99, 102, 241, 0.25);
+    }
+    50% {
+        box-shadow:
+            0 0 0 1.5px var(--fa-accent),
+            0 0 0 10px rgba(99, 102, 241, 0.08),
+            0 4px 22px rgba(99, 102, 241, 0.4);
+    }
+}
+
+/* Completed nodes get a steady success border so the user can trace the
+   path of execution at a glance */
+.fa-wf-node.fa-node-completed {
+    border-color: rgba(16, 185, 129, 0.55);
+}
+.fa-wf-node.fa-node-completed::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg,
+        rgba(16, 185, 129, 0.04) 0%,
+        transparent 40%);
+    pointer-events: none;
+}
+.fa-wf-node.fa-node-failed {
+    border-color: rgba(239, 68, 68, 0.6);
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.25);
+}
+
+/* Edge between two completed nodes — solid colored line */
+.fa-edge-path.fa-edge-active {
+    stroke: var(--fa-success);
+    stroke-width: 2.2;
+    opacity: 0.85;
+}
+
+/* Edge currently carrying data — base is a dimmer line, overlay carries
+   the flowing dot. We brighten the base too so the path is visible. */
+.fa-edge-running-base {
+    stroke: var(--fa-accent);
+    stroke-width: 2.2;
+    opacity: 0.35;
+}
+.fa-edge-running-flow {
+    fill: none;
+    stroke: var(--fa-accent);
+    stroke-width: 2.4;
+    stroke-dasharray: 6 8;
+    stroke-linecap: round;
+    opacity: 0.85;
+    animation: fa-edge-flow 0.9s linear infinite;
+}
+@keyframes fa-edge-flow {
+    from { stroke-dashoffset: 0;   }
+    to   { stroke-dashoffset: -14; }
+}
+
+/* The bright dot riding along the path */
+.fa-edge-running-dot {
+    fill: var(--fa-accent);
+    filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.85));
 }
