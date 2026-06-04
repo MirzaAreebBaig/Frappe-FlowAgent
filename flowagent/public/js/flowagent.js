@@ -2372,6 +2372,12 @@ function startNodeDrag(e, id) {
 function renderEdgesFast() {
     const svg = document.getElementById('fa-edges');
     if (!svg) return;
+    // Build a lookup of existing flow overlay paths by edge key, so when a
+    // node is dragged mid-run the animated overlay tracks the base path.
+    const flowByKey = new Map();
+    svg.querySelectorAll('.fa-edge-running-flow').forEach(p => {
+        flowByKey.set(p.getAttribute('data-edge-key'), p);
+    });
     const paths = svg.querySelectorAll('path.fa-edge-path');
     state.edges.forEach((e, i) => {
         const from = state.nodes.find(n => n.id === e.from);
@@ -2382,6 +2388,8 @@ function renderEdgesFast() {
         const dx = (tp.x - fp.x) / 2;
         const d = `M${fp.x},${fp.y} C${fp.x + dx},${fp.y} ${tp.x - dx},${tp.y} ${tp.x},${tp.y}`;
         if (paths[i]) paths[i].setAttribute('d', d);
+        const flow = flowByKey.get(_edgeKey(e));
+        if (flow) flow.setAttribute('d', d);
     });
 }
 
@@ -2490,36 +2498,105 @@ function renderEdges() {
         const tp = portXY(to, 'in');
         const dx = (tp.x - fp.x) / 2;
         const d = `M${fp.x},${fp.y} C${fp.x + dx},${fp.y} ${tp.x - dx},${tp.y} ${tp.x},${tp.y}`;
+        const key = _edgeKey(e);
 
-        // Base path — always rendered. Gets the .fa-edge-active class for
-        // edges between completed nodes (steady highlight).
+        // Base path — the static line. Tagged with the edge key so
+        // updateRunAnimations() can find and toggle classes on it
+        // without rebuilding the SVG.
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', d);
         path.setAttribute('class', 'fa-edge-path');
+        path.setAttribute('data-edge-key', key);
         if (e.runHighlight) path.classList.add('fa-edge-active');
         if (e.runActive)    path.classList.add('fa-edge-running-base');
         svg.appendChild(path);
 
         // Animated overlay — only on edges feeding into the next-to-fire
-        // node. Two parts: a flowing dashed line, and a small bright dot
-        // travelling along the path.
+        // node. We use pure CSS stroke-dashoffset animation for the flow
+        // effect; the SVG element stays in place across polling cycles
+        // so the animation doesn't restart and look jittery.
         if (e.runActive) {
             const flow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             flow.setAttribute('d', d);
             flow.setAttribute('class', 'fa-edge-running-flow');
+            flow.setAttribute('data-edge-key', key);
             svg.appendChild(flow);
-
-            const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            dot.setAttribute('r', '4');
-            dot.setAttribute('class', 'fa-edge-running-dot');
-            const motion = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
-            motion.setAttribute('dur', '1.2s');
-            motion.setAttribute('repeatCount', 'indefinite');
-            motion.setAttribute('path', d);
-            motion.setAttribute('rotate', 'auto');
-            dot.appendChild(motion);
-            svg.appendChild(dot);
         }
+    });
+}
+
+// Stable identifier for an edge so we can find its DOM element across
+// polling cycles even if state.edges gets reordered.
+function _edgeKey(e) {
+    return `${e.from}|${e.to}|${e.fromPort || 'out'}`;
+}
+
+// Update only the run-state classes on existing edge paths, and add or
+// remove the flow overlay as needed. Crucially: does NOT rebuild the
+// SVG, so CSS animations on existing elements continue smoothly.
+//
+// Called by paintTrace on every polling tick. The full renderEdges()
+// rebuild is reserved for actual graph changes (drag, wire, delete).
+//
+// If the SVG is out of sync with state.edges (e.g. a new edge was wired
+// without renderEdges having been called), we fall through to a full
+// rebuild rather than silently skipping the missing edge.
+function updateRunAnimations() {
+    const svg = document.getElementById('fa-edges');
+    if (!svg) return;
+
+    // Build a lookup of existing path elements by edge key
+    const existingBase = new Map();
+    const existingFlow = new Map();
+    svg.querySelectorAll('.fa-edge-path').forEach(p => {
+        existingBase.set(p.getAttribute('data-edge-key'), p);
+    });
+    svg.querySelectorAll('.fa-edge-running-flow').forEach(p => {
+        existingFlow.set(p.getAttribute('data-edge-key'), p);
+    });
+
+    // Sync check: if any current edge lacks a base path, the SVG is out
+    // of date and we need to rebuild.
+    for (const e of state.edges) {
+        if (!existingBase.has(_edgeKey(e))) {
+            renderEdges();
+            return;
+        }
+    }
+    // Also detect stale paths (edge removed from state but still in DOM)
+    if (existingBase.size !== state.edges.length) {
+        renderEdges();
+        return;
+    }
+
+    const desiredKeys = new Set();
+
+    state.edges.forEach(e => {
+        const key = _edgeKey(e);
+        desiredKeys.add(key);
+        const path = existingBase.get(key);
+        // Toggle classes only when state actually changed. classList.toggle
+        // with an explicit boolean is a no-op when it matches the current
+        // state, which is exactly the property we want for CSS animations.
+        path.classList.toggle('fa-edge-active', !!e.runHighlight);
+        path.classList.toggle('fa-edge-running-base', !!e.runActive);
+
+        const flow = existingFlow.get(key);
+        if (e.runActive && !flow) {
+            // Need to add a flow overlay — copy the d attribute from the base
+            const newFlow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            newFlow.setAttribute('d', path.getAttribute('d'));
+            newFlow.setAttribute('class', 'fa-edge-running-flow');
+            newFlow.setAttribute('data-edge-key', key);
+            svg.appendChild(newFlow);
+        } else if (!e.runActive && flow) {
+            flow.remove();
+        }
+    });
+
+    // Clean up any stale flow overlays whose edge no longer exists
+    existingFlow.forEach((flow, key) => {
+        if (!desiredKeys.has(key)) flow.remove();
     });
 }
 
@@ -3259,18 +3336,10 @@ function executeRun(payload) {
     const dry = state.testMode ? 1 : 0;
     addLog(dry ? 'Test run (dry, no writes)…' : 'Running…', 'info');
 
-    // Reset node status dots, warning badges, and any leftover run-state
-    // classes from a previous run so the canvas starts clean.
-    document.querySelectorAll('.fa-node-status').forEach(s => {
-        s.removeAttribute('data-status');
-        s.style.background = '';
-    });
-    document.querySelectorAll('.fa-node-warn-badge').forEach(b => b.remove());
-    document.querySelectorAll('.fa-wf-node').forEach(n => {
-        n.classList.remove('fa-node-running', 'fa-node-completed', 'fa-node-failed');
-    });
-    state.edges.forEach(e => { e.runHighlight = false; e.runActive = false; });
-    renderEdges();
+    // Reset any leftover visual state from a previous run so the canvas
+    // starts clean. This wipes the visual-state cache too so paintTrace
+    // can properly apply diffs against a known baseline.
+    resetRunVisualState();
 
     // Show the Trace tab immediately with a "running" placeholder so the
     // user knows things are happening even before the first step lands.
@@ -3281,6 +3350,18 @@ function executeRun(payload) {
         duration_ms: 0,
         steps: [],
         trigger_source: dry ? 'studio_dry_run' : 'studio_manual',
+    });
+
+    // Light up the trigger node(s) immediately while we wait for the first
+    // step to land — gives instant visual feedback that the Run actually fired.
+    state.nodes.forEach(n => {
+        if (n.type && n.type.startsWith('trigger_')) {
+            const el = document.getElementById('fa-node-' + n.id);
+            if (el) {
+                el.classList.add('fa-node-running');
+                _runVisualState.nodeClass.set(n.id, 'running');
+            }
+        }
     });
 
     // Stop any prior polling
@@ -3443,95 +3524,190 @@ function saveThenRun() {
     });
 }
 
+// Cache of the visual state we last painted, so subsequent paints can
+// compute a minimal diff. CSS animations restart when their class is
+// removed and re-added — so the trick to smooth animation across polling
+// is to only touch nodes whose desired state actually changed.
+const _runVisualState = {
+    nodeClass: new Map(),      // node_id -> 'completed' | 'failed' | 'running' | null
+    nodeWarning: new Map(),    // node_id -> warning text or null
+    nodeStatus: new Map(),     // node_id -> dot status string or null
+    loggedSteps: new Set(),    // step_index keys we've already addLog'd for this run
+    runName: null,
+};
+
 function paintTrace(run) {
-    // Reset all status dots + warning badges + run-state classes
-    document.querySelectorAll('.fa-node-status').forEach(s => {
-        s.removeAttribute('data-status');
-        s.style.background = '';
-    });
-    document.querySelectorAll('.fa-node-warn-badge').forEach(b => b.remove());
-    document.querySelectorAll('.fa-wf-node').forEach(n => {
-        n.classList.remove('fa-node-running', 'fa-node-completed', 'fa-node-failed');
-    });
-
-    state.edges.forEach(e => {
-        e.runHighlight = false;
-        e.runActive = false;
-    });
-
     const steps = run.steps || [];
+
+    // If this is a different run than what we last painted, reset our caches.
+    // A new run could legitimately have the same step state as the last frame
+    // of the previous run; without the reset we'd skip the repaint.
+    if (run.name !== _runVisualState.runName) {
+        _runVisualState.nodeClass.clear();
+        _runVisualState.nodeWarning.clear();
+        _runVisualState.nodeStatus.clear();
+        _runVisualState.loggedSteps.clear();
+        _runVisualState.runName = run.name;
+    }
+
+    // ---- Compute the desired visual state per node ----
+    const recordedIds = new Set();
     const completedIds = new Set();
-    let lastFailedId = null;
+    const desiredClass  = new Map();   // node_id -> class suffix
+    const desiredWarn   = new Map();   // node_id -> warning text
+    const desiredStatus = new Map();   // node_id -> step status
 
     steps.forEach(step => {
-        const nodeEl = document.getElementById('fa-node-' + step.node_id);
-        const dot = document.getElementById('fa-ns-' + step.node_id);
-        if (dot) {
-            dot.setAttribute('data-status', step.status);
+        recordedIds.add(step.node_id);
+        desiredStatus.set(step.node_id, step.status);
+        if (step.status === 'Success') {
+            desiredClass.set(step.node_id, 'completed');
+            completedIds.add(step.node_id);
+        } else if (step.status === 'Failed' || step.status === 'Timeout') {
+            desiredClass.set(step.node_id, 'failed');
         }
-        if (nodeEl) {
-            if (step.status === 'Success') {
-                nodeEl.classList.add('fa-node-completed');
-                completedIds.add(step.node_id);
-            } else if (step.status === 'Failed' || step.status === 'Timeout') {
-                nodeEl.classList.add('fa-node-failed');
-                lastFailedId = step.node_id;
+        // Render-warning badge condition (matches original logic)
+        if (step.error && (step.error.startsWith('⚠') || (step.status === 'Success' && step.error))) {
+            desiredWarn.set(step.node_id, step.error.replace(/^⚠\s*/, ''));
+        }
+    });
+
+    // While the run is live, figure out which node(s) are *currently* firing.
+    // The "running" node is the downstream target of the most recent step
+    // that hasn't itself recorded a step yet. Completed/failed always wins
+    // over running so we never blink between states on the same node.
+    const runIsLive = run.status === 'Running' || run.status === 'Queued';
+    if (runIsLive) {
+        if (steps.length > 0) {
+            const lastStep = steps[steps.length - 1];
+            // Only propagate "running" downstream if the last step succeeded.
+            // A failed step halts the workflow, so its downstream nodes will
+            // never fire — marking them as running would mislead the user.
+            if (lastStep.status === 'Success') {
+                state.edges.forEach(e => {
+                    if (e.from === lastStep.node_id && !recordedIds.has(e.to)) {
+                        if (!desiredClass.has(e.to)) desiredClass.set(e.to, 'running');
+                    }
+                });
             }
+        } else {
+            // No steps recorded yet — the trigger is firing
+            state.nodes.forEach(n => {
+                if (n.type && n.type.startsWith('trigger_') && !desiredClass.has(n.id)) {
+                    desiredClass.set(n.id, 'running');
+                }
+            });
         }
-        // Render warnings appear in step.error prefixed with '⚠' even on Success.
-        // Surface them as a small badge on the node so users can see at a glance
-        // which nodes had template issues.
-        if (nodeEl && step.error && (step.error.startsWith('⚠') || step.status === 'Success' && step.error)) {
+    }
+
+    // ---- Apply node-class diff ----
+    // Touch only the nodes whose desired class differs from the cache. This
+    // is what keeps the pulse animation smooth: the class is added once
+    // when the node enters the running state and not touched again until
+    // it transitions out.
+    state.nodes.forEach(n => {
+        const el = document.getElementById('fa-node-' + n.id);
+        if (!el) return;
+        const want = desiredClass.get(n.id) || null;
+        const prev = _runVisualState.nodeClass.get(n.id) || null;
+        if (want === prev) return;
+        if (prev) el.classList.remove('fa-node-' + prev);
+        if (want) el.classList.add('fa-node-' + want);
+        _runVisualState.nodeClass.set(n.id, want);
+    });
+
+    // ---- Apply status-dot diff ----
+    state.nodes.forEach(n => {
+        const dot = document.getElementById('fa-ns-' + n.id);
+        if (!dot) return;
+        const want = desiredStatus.get(n.id) || null;
+        const prev = _runVisualState.nodeStatus.get(n.id) || null;
+        if (want === prev) return;
+        if (want) dot.setAttribute('data-status', want);
+        else      dot.removeAttribute('data-status');
+        _runVisualState.nodeStatus.set(n.id, want);
+    });
+
+    // ---- Apply warning-badge diff ----
+    state.nodes.forEach(n => {
+        const want = desiredWarn.get(n.id) || null;
+        const prev = _runVisualState.nodeWarning.get(n.id) || null;
+        if (want === prev) return;
+        const nodeEl = document.getElementById('fa-node-' + n.id);
+        if (!nodeEl) return;
+        const existing = nodeEl.querySelector('.fa-node-warn-badge');
+        if (existing) existing.remove();
+        if (want) {
             const badge = document.createElement('div');
             badge.className = 'fa-node-warn-badge';
             badge.innerHTML = '<i class="ti ti-alert-triangle"></i>';
-            badge.title = step.error.replace(/^⚠\s*/, '');
+            badge.title = want;
             nodeEl.appendChild(badge);
         }
-        addLog(`#${step.step_index} ${step.node_label} → ${step.status}${step.error ? ' — ' + (step.error || '').split('\n')[0] : ''} (${step.duration_ms}ms)`,
-               step.status === 'Success' ? (step.error ? 'warn' : 'ok') : step.status === 'Failed' ? 'err' : 'warn');
+        _runVisualState.nodeWarning.set(n.id, want);
     });
 
-    // Mark edges between completed nodes as run-highlighted (steady glow).
+    // ---- Apply edge state ----
     state.edges.forEach(e => {
-        if (completedIds.has(e.from) && completedIds.has(e.to)) {
-            e.runHighlight = true;
+        e.runHighlight = completedIds.has(e.from) && completedIds.has(e.to);
+        e.runActive = false;
+    });
+    if (runIsLive && steps.length > 0) {
+        const lastStep = steps[steps.length - 1];
+        if (lastStep.status === 'Success') {
+            state.edges.forEach(e => {
+                if (e.from === lastStep.node_id && !recordedIds.has(e.to)) {
+                    e.runActive = true;
+                }
+            });
+        }
+    }
+    // Diff-update the SVG without rebuilding. This preserves the dashed
+    // flow animation across polling cycles — it doesn't restart from zero
+    // every time a poll lands.
+    updateRunAnimations();
+
+    // ---- Append log entries for steps we haven't logged yet ----
+    steps.forEach(step => {
+        const logKey = step.step_index + ':' + step.status;
+        if (_runVisualState.loggedSteps.has(logKey)) return;
+        _runVisualState.loggedSteps.add(logKey);
+        addLog(
+            `#${step.step_index} ${step.node_label} → ${step.status}${step.error ? ' — ' + (step.error || '').split('\n')[0] : ''} (${step.duration_ms}ms)`,
+            step.status === 'Success' ? (step.error ? 'warn' : 'ok')
+              : step.status === 'Failed' ? 'err' : 'warn'
+        );
+    });
+
+    renderTracePane(run);
+}
+
+// Force-reset the cached run-visual state. Called when starting a brand
+// new run so the previous run's completed/failed classes get properly
+// cleaned off the canvas.
+function resetRunVisualState() {
+    _runVisualState.nodeClass.forEach((cls, nodeId) => {
+        const el = document.getElementById('fa-node-' + nodeId);
+        if (el && cls) el.classList.remove('fa-node-' + cls);
+    });
+    _runVisualState.nodeStatus.forEach((_, nodeId) => {
+        const dot = document.getElementById('fa-ns-' + nodeId);
+        if (dot) dot.removeAttribute('data-status');
+    });
+    _runVisualState.nodeWarning.forEach((_, nodeId) => {
+        const el = document.getElementById('fa-node-' + nodeId);
+        if (el) {
+            const badge = el.querySelector('.fa-node-warn-badge');
+            if (badge) badge.remove();
         }
     });
-
-    // While the run is still in flight, figure out which node(s) are
-    // *about* to fire (or are firing right now). That's: the downstream
-    // targets of the most recently completed step that haven't themselves
-    // recorded a step yet. Highlight those nodes + the edges leading to
-    // them with the "running" animation.
-    const runIsLive = run.status === 'Running' || run.status === 'Queued';
-    if (runIsLive && steps.length > 0) {
-        const recordedIds = new Set(steps.map(s => s.node_id));
-        const lastStep = steps[steps.length - 1];
-        const lastPort = (lastStep.output && typeof lastStep.output === 'object' && lastStep.output._dry_run)
-            ? null  // dry-run doesn't tell us which branch was taken; just highlight all
-            : null; // we don't have port info on the step yet — light all outgoing edges
-
-        state.edges.forEach(e => {
-            if (e.from === lastStep.node_id && !recordedIds.has(e.to)) {
-                e.runActive = true;
-                const nextNode = document.getElementById('fa-node-' + e.to);
-                if (nextNode) nextNode.classList.add('fa-node-running');
-            }
-        });
-    } else if (runIsLive && steps.length === 0) {
-        // No steps recorded yet — the trigger node is about to fire.
-        // Highlight any trigger-type nodes on the canvas as "running".
-        state.nodes.forEach(n => {
-            if (n.type && n.type.startsWith('trigger_')) {
-                const el = document.getElementById('fa-node-' + n.id);
-                if (el) el.classList.add('fa-node-running');
-            }
-        });
-    }
-
-    renderEdges();
-    renderTracePane(run);
+    _runVisualState.nodeClass.clear();
+    _runVisualState.nodeStatus.clear();
+    _runVisualState.nodeWarning.clear();
+    _runVisualState.loggedSteps.clear();
+    _runVisualState.runName = null;
+    state.edges.forEach(e => { e.runHighlight = false; e.runActive = false; });
+    updateRunAnimations();
 }
 
 // ============================================================

@@ -1943,36 +1943,37 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
 }
 
 /* =================================================================
-   n8n-style run animation — currently-running node pulse + flowing
-   edge dot. Only applied while the run is live; cleared on terminal.
+   n8n-style run animation
    ================================================================= */
+/* paintTrace is diff-based, so the classes below stay on the same DOM
+   element for the entire duration a node is in that state. CSS
+   animations therefore run smoothly without restarting on every
+   polling cycle. */
 
-/* The actively-running node: soft glow that pulses to draw the eye */
+/* The currently-running node: soft indigo halo that breathes in and
+   out. Bigger and more obvious than a subtle border change. */
 .fa-wf-node.fa-node-running {
-    box-shadow:
-        0 0 0 1.5px var(--fa-accent),
-        0 0 0 6px rgba(99, 102, 241, 0.15),
-        0 4px 16px rgba(99, 102, 241, 0.25);
-    animation: fa-node-pulse 1.4s ease-in-out infinite;
+    border-color: var(--fa-accent);
+    animation: fa-node-pulse 1.6s ease-in-out infinite;
     z-index: 3;
 }
 @keyframes fa-node-pulse {
     0%, 100% {
         box-shadow:
-            0 0 0 1.5px var(--fa-accent),
-            0 0 0 6px rgba(99, 102, 241, 0.15),
-            0 4px 16px rgba(99, 102, 241, 0.25);
+            0 0 0 2px var(--fa-accent),
+            0 0 0 6px rgba(99, 102, 241, 0.18),
+            0 6px 18px rgba(99, 102, 241, 0.28);
     }
     50% {
         box-shadow:
-            0 0 0 1.5px var(--fa-accent),
-            0 0 0 10px rgba(99, 102, 241, 0.08),
-            0 4px 22px rgba(99, 102, 241, 0.4);
+            0 0 0 2px var(--fa-accent),
+            0 0 0 14px rgba(99, 102, 241, 0.05),
+            0 8px 26px rgba(99, 102, 241, 0.45);
     }
 }
 
-/* Completed nodes get a steady success border so the user can trace the
-   path of execution at a glance */
+/* Completed nodes get a green border so the path of execution is
+   visible at a glance. The diagonal tint is subtle and additive. */
 .fa-wf-node.fa-node-completed {
     border-color: rgba(16, 185, 129, 0.55);
 }
@@ -1982,8 +1983,8 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
     top: 0; left: 0; right: 0; bottom: 0;
     border-radius: inherit;
     background: linear-gradient(135deg,
-        rgba(16, 185, 129, 0.04) 0%,
-        transparent 40%);
+        rgba(16, 185, 129, 0.05) 0%,
+        transparent 45%);
     pointer-events: none;
 }
 .fa-wf-node.fa-node-failed {
@@ -1991,36 +1992,40 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
     box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.25);
 }
 
-/* Edge between two completed nodes — solid colored line */
+/* Edge between two completed nodes — solid green */
 .fa-edge-path.fa-edge-active {
     stroke: var(--fa-success);
-    stroke-width: 2.2;
+    stroke-width: 2.4;
     opacity: 0.85;
 }
 
-/* Edge currently carrying data — base is a dimmer line, overlay carries
-   the flowing dot. We brighten the base too so the path is visible. */
+/* Currently-carrying edge — the base path stays dim so the bright
+   overlay reads as "data flowing here". */
 .fa-edge-running-base {
     stroke: var(--fa-accent);
-    stroke-width: 2.2;
-    opacity: 0.35;
+    stroke-width: 2.4;
+    opacity: 0.25;
 }
+
+/* The flow overlay. CSS-only stroke-dashoffset animation — no SVG
+   animateMotion which restarts on element creation. Because the dash
+   pattern is repetitive, even if the element does get recreated
+   occasionally (full SVG rebuild), the visual is indistinguishable.
+   Faster cycle (0.6s) so partial cycles still convey "flow".
+   `will-change` hints the browser to GPU-accelerate the animation. */
 .fa-edge-running-flow {
     fill: none;
     stroke: var(--fa-accent);
-    stroke-width: 2.4;
-    stroke-dasharray: 6 8;
+    stroke-width: 3;
+    stroke-dasharray: 8 10;
     stroke-linecap: round;
-    opacity: 0.85;
-    animation: fa-edge-flow 0.9s linear infinite;
+    opacity: 0.95;
+    filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.55));
+    animation: fa-edge-flow 0.6s linear infinite;
+    will-change: stroke-dashoffset;
+    pointer-events: none;
 }
 @keyframes fa-edge-flow {
     from { stroke-dashoffset: 0;   }
-    to   { stroke-dashoffset: -14; }
-}
-
-/* The bright dot riding along the path */
-.fa-edge-running-dot {
-    fill: var(--fa-accent);
-    filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.85));
+    to   { stroke-dashoffset: -18; }
 }
