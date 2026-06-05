@@ -1,5 +1,5 @@
 {
- "chart_name": "FlowAgent AI Cost Trend",
+ "chart_name": "AI Cost Trend",
  "chart_type": "Sum",
  "creation": "2026-06-05 12:00:00",
  "docstatus": 0,
@@ -13,7 +13,7 @@
  "modified": "2026-06-05 12:00:00",
  "modified_by": "Administrator",
  "module": "FlowAgent Core",
- "name": "FlowAgent Cost Trend",
+ "name": "AI Cost Trend",
  "owner": "Administrator",
  "timespan": "Last Month",
  "type": "Line",

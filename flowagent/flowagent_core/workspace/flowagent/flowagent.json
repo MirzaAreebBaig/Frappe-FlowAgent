@@ -1,23 +1,19 @@
 {
  "charts": [
   {
-   "chart_name": "FlowAgent Daily Runs",
+   "chart_name": "Daily Runs",
    "label": "Daily Runs"
   },
   {
-   "chart_name": "FlowAgent Status Breakdown",
-   "label": "Status Breakdown"
-  },
-  {
-   "chart_name": "FlowAgent Cost Trend",
+   "chart_name": "AI Cost Trend",
    "label": "AI Cost Trend"
   },
   {
-   "chart_name": "FlowAgent Top Workflows",
+   "chart_name": "Top Workflows",
    "label": "Top Workflows"
   }
  ],
- "content": "[{\"id\": \"wsHeader\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>FlowAgent Dashboard</b></span>\", \"col\": 12}}, {\"id\": \"wsSp1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"ncRuns\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"FlowAgent Runs Today\", \"col\": 3}}, {\"id\": \"ncFail\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"FlowAgent Failed Today\", \"col\": 3}}, {\"id\": \"ncDur\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"FlowAgent Avg Duration 7d\", \"col\": 3}}, {\"id\": \"ncCost\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"FlowAgent AI Cost Month\", \"col\": 3}}, {\"id\": \"ncActive\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"FlowAgent Active Workflows\", \"col\": 3}}, {\"id\": \"wsSp2\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"hActivity\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h5\\\">Activity</span>\", \"col\": 12}}, {\"id\": \"chDaily\", \"type\": \"chart\", \"data\": {\"chart_name\": \"FlowAgent Daily Runs\", \"col\": 8}}, {\"id\": \"chStatus\", \"type\": \"chart\", \"data\": {\"chart_name\": \"FlowAgent Status Breakdown\", \"col\": 4}}, {\"id\": \"hAI\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h5\\\">AI Usage &amp; Workload</span>\", \"col\": 12}}, {\"id\": \"chCost\", \"type\": \"chart\", \"data\": {\"chart_name\": \"FlowAgent Cost Trend\", \"col\": 8}}, {\"id\": \"chTop\", \"type\": \"chart\", \"data\": {\"chart_name\": \"FlowAgent Top Workflows\", \"col\": 4}}, {\"id\": \"hQuick\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h5\\\">Quick Access</span>\", \"col\": 12}}, {\"id\": \"scStudio\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Open Studio\", \"col\": 4}}, {\"id\": \"scWf\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"All Workflows\", \"col\": 4}}, {\"id\": \"scRuns\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Recent Runs\", \"col\": 4}}]",
+ "content": "[{\"id\": \"wsHeader\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>FlowAgent Dashboard</b></span>\", \"col\": 12}}, {\"id\": \"ncRuns\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Runs Today\", \"col\": 3}}, {\"id\": \"ncFail\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Failed Today\", \"col\": 3}}, {\"id\": \"ncDur\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Avg Duration (7d)\", \"col\": 3}}, {\"id\": \"ncCost\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"AI Cost (Month)\", \"col\": 3}}, {\"id\": \"hQuick\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h5\\\">Quick Access</span>\", \"col\": 12}}, {\"id\": \"scStudio\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Open Studio\", \"col\": 4}}, {\"id\": \"scRuns\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Recent Runs\", \"col\": 4}}, {\"id\": \"scSettings\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"FlowAgent Settings\", \"col\": 4}}, {\"id\": \"lkWorkflows\", \"type\": \"card\", \"data\": {\"card_name\": \"Workflows\", \"col\": 4}}, {\"id\": \"lkMonitoring\", \"type\": \"card\", \"data\": {\"card_name\": \"Monitoring\", \"col\": 4}}, {\"id\": \"lkReports\", \"type\": \"card\", \"data\": {\"card_name\": \"Reports\", \"col\": 4}}, {\"id\": \"chDaily\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Daily Runs\", \"col\": 6}}, {\"id\": \"chCost\", \"type\": \"chart\", \"data\": {\"chart_name\": \"AI Cost Trend\", \"col\": 6}}, {\"id\": \"chTop\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Top Workflows\", \"col\": 12}}]",
  "creation": "2026-06-05 12:00:00",
  "custom_blocks": [],
  "docstatus": 0,
@@ -33,7 +29,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Workflows",
-   "link_count": 0,
+   "link_count": 2,
    "link_type": "DocType",
    "onboard": 1,
    "type": "Card Break"
@@ -42,7 +38,7 @@
    "dependencies": "",
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Workflow",
+   "label": "All Workflows",
    "link_count": 0,
    "link_to": "FlowAgent Workflow",
    "link_type": "DocType",
@@ -64,7 +60,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Monitoring",
-   "link_count": 0,
+   "link_count": 1,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -84,7 +80,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Reports",
-   "link_count": 0,
+   "link_count": 5,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -98,8 +94,8 @@
    "link_to": "FlowAgent Workflow Performance",
    "link_type": "Report",
    "onboard": 0,
-   "type": "Link",
-   "report_ref_doctype": "FlowAgent Workflow Run"
+   "report_ref_doctype": "FlowAgent Workflow Run",
+   "type": "Link"
   },
   {
    "dependencies": "",
@@ -110,8 +106,8 @@
    "link_to": "FlowAgent Run History",
    "link_type": "Report",
    "onboard": 0,
-   "type": "Link",
-   "report_ref_doctype": "FlowAgent Workflow Run"
+   "report_ref_doctype": "FlowAgent Workflow Run",
+   "type": "Link"
   },
   {
    "dependencies": "",
@@ -122,8 +118,8 @@
    "link_to": "FlowAgent AI Cost Analysis",
    "link_type": "Report",
    "onboard": 0,
-   "type": "Link",
-   "report_ref_doctype": "FlowAgent Workflow Run"
+   "report_ref_doctype": "FlowAgent Workflow Run",
+   "type": "Link"
   },
   {
    "dependencies": "",
@@ -134,8 +130,8 @@
    "link_to": "FlowAgent Slowest Nodes",
    "link_type": "Report",
    "onboard": 0,
-   "type": "Link",
-   "report_ref_doctype": "FlowAgent Workflow Run"
+   "report_ref_doctype": "FlowAgent Workflow Run",
+   "type": "Link"
   },
   {
    "dependencies": "",
@@ -146,14 +142,14 @@
    "link_to": "FlowAgent Error Analysis",
    "link_type": "Report",
    "onboard": 0,
-   "type": "Link",
-   "report_ref_doctype": "FlowAgent Workflow Run"
+   "report_ref_doctype": "FlowAgent Workflow Run",
+   "type": "Link"
   },
   {
    "hidden": 0,
    "is_query_report": 0,
    "label": "Settings",
-   "link_count": 0,
+   "link_count": 1,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -177,23 +173,19 @@
  "number_cards": [
   {
    "label": "Runs Today",
-   "number_card_name": "FlowAgent Runs Today"
+   "number_card_name": "Runs Today"
   },
   {
    "label": "Failed Today",
-   "number_card_name": "FlowAgent Failed Today"
+   "number_card_name": "Failed Today"
   },
   {
    "label": "Avg Duration (7d)",
-   "number_card_name": "FlowAgent Avg Duration 7d"
+   "number_card_name": "Avg Duration (7d)"
   },
   {
    "label": "AI Cost (Month)",
-   "number_card_name": "FlowAgent AI Cost Month"
-  },
-  {
-   "label": "Active Workflows",
-   "number_card_name": "FlowAgent Active Workflows"
+   "number_card_name": "AI Cost (Month)"
   }
  ],
  "owner": "Administrator",
@@ -214,21 +206,21 @@
    "type": "Page"
   },
   {
-   "color": "Gray",
-   "doc_view": "List",
-   "format": "",
-   "label": "All Workflows",
-   "link_to": "FlowAgent Workflow",
-   "stats_filter": "",
-   "type": "DocType"
-  },
-  {
    "color": "Green",
    "doc_view": "List",
    "format": "",
    "label": "Recent Runs",
    "link_to": "FlowAgent Workflow Run",
    "stats_filter": "",
+   "type": "DocType"
+  },
+  {
+   "color": "Gray",
+   "doc_view": "List",
+   "format": "",
+   "label": "FlowAgent Settings",
+   "link_to": "FlowAgent Settings",
+   "stats_filter": "[]",
    "type": "DocType"
   }
  ],

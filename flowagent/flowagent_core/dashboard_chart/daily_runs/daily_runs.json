@@ -1,6 +1,6 @@
 {
- "chart_name": "FlowAgent Status Breakdown",
- "chart_type": "Group By",
+ "chart_name": "Daily Runs",
+ "chart_type": "Count",
  "creation": "2026-06-05 12:00:00",
  "docstatus": 0,
  "doctype": "Dashboard Chart",
@@ -13,12 +13,12 @@
  "modified": "2026-06-05 12:00:00",
  "modified_by": "Administrator",
  "module": "FlowAgent Core",
- "name": "FlowAgent Status Breakdown",
+ "name": "Daily Runs",
  "owner": "Administrator",
  "timespan": "Last Month",
- "type": "Donut",
+ "type": "Line",
  "based_on": "creation",
- "timeseries": 0,
- "group_by_based_on": "status",
- "group_by_type": "Count"
+ "time_interval": "Daily",
+ "timeseries": 1,
+ "color": "#6366F1"
 }

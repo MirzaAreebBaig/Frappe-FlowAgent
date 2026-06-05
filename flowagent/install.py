@@ -1,22 +1,50 @@
-# Copyright (c) 2026, FlowAgent and contributors
+# Copyright (c) 2026, FlowAgent
 # For license information, please see license.txt
-"""
-Post-install / post-migrate hooks.
+"""Install / migrate hooks for FlowAgent.
 
-We ensure the FlowAgent Settings single exists and seed a couple of
-example workflows so a fresh install isn't an empty canvas.
+Idempotent: safe to run any number of times. Handled in order:
+1. Ensure the FlowAgent Manager role exists
+2. Ensure the FlowAgent Settings singleton exists
+3. Delete leftover `FlowAgent X`-prefixed Number Cards / Charts from
+   earlier (broken) install attempts so they don't sit around as orphans
+4. Re-import all Number Cards, Dashboard Charts, and the Workspace JSON
+   from disk so users see layout updates with every release
+
+With v0.3.7+ we ship records named `Runs Today`, `Daily Runs`, etc. —
+matching the Number Card / Dashboard Chart autoname rules
+(`field:label` and `field:chart_name` respectively). This means Frappe's
+standard import path produces records with the names our workspace
+content blocks reference, so the rendering "just works" without any
+of the `name_set` flag gymnastics from earlier versions.
 """
+from __future__ import annotations
 
 import frappe
+
+
+# Records from previous (broken) install attempts. These were created
+# under the old "FlowAgent X" naming scheme that didn't match Frappe's
+# autoname rules. Now they're orphans — clean them out.
+_LEGACY_PREFIXED_CARDS = [
+    "FlowAgent Runs Today",
+    "FlowAgent Failed Today",
+    "FlowAgent Avg Duration 7d",
+    "FlowAgent AI Cost Month",
+    "FlowAgent Active Workflows",
+]
+_LEGACY_PREFIXED_CHARTS = [
+    "FlowAgent Daily Runs",
+    "FlowAgent Cost Trend",
+    "FlowAgent Status Breakdown",
+    "FlowAgent Top Workflows",
+]
 
 
 def after_install():
     """Run once after `bench install-app flowagent`."""
     _ensure_role()
     _ensure_settings()
-    # Order matters: ensure the cards/charts exist BEFORE the workspace
-    # is re-imported, otherwise the workspace's references would point
-    # to records that don't exist yet and Frappe would silently drop them.
+    _cleanup_legacy_assets()
     _refresh_dashboard_assets()
     _refresh_workspace()
     frappe.db.commit()
@@ -26,6 +54,7 @@ def after_migrate():
     """Run after every `bench migrate` — idempotent."""
     _ensure_role()
     _ensure_settings()
+    _cleanup_legacy_assets()
     _refresh_dashboard_assets()
     _refresh_workspace()
     frappe.db.commit()
@@ -53,175 +82,72 @@ def _ensure_settings():
         doc.insert(ignore_permissions=True)
 
 
+def _cleanup_legacy_assets():
+    """Delete the `FlowAgent X`-prefixed Number Cards and Dashboard
+    Charts left behind by v0.3.4-v0.3.6 install attempts.
+
+    Safe because we only delete records with an exact name match from a
+    known-finite list — no wildcard / startswith / module-wide deletion
+    that could touch a user-created record.
+    """
+    for name in _LEGACY_PREFIXED_CARDS:
+        if frappe.db.exists("Number Card", name):
+            try:
+                frappe.delete_doc("Number Card", name,
+                                  ignore_permissions=True, force=True)
+            except Exception as e:
+                frappe.log_error(
+                    title=f"FlowAgent: cleanup failed for legacy Number Card {name}",
+                    message=f"{type(e).__name__}: {e}",
+                )
+
+    for name in _LEGACY_PREFIXED_CHARTS:
+        if frappe.db.exists("Dashboard Chart", name):
+            try:
+                frappe.delete_doc("Dashboard Chart", name,
+                                  ignore_permissions=True, force=True)
+            except Exception as e:
+                frappe.log_error(
+                    title=f"FlowAgent: cleanup failed for legacy Dashboard Chart {name}",
+                    message=f"{type(e).__name__}: {e}",
+                )
+
+
 def _refresh_dashboard_assets():
-    """Create / update every FlowAgent Number Card and Dashboard Chart
-    referenced by the workspace.
+    """Import every Number Card and Dashboard Chart JSON from disk.
 
-    Why we don't just use `frappe.modules.import_file.import_file_by_path`:
-    Number Card has an `autoname: "field:label"` rule. When Frappe inserts
-    a new Number Card via the standard import path, the autoname rule
-    runs during insert and overwrites the explicit `name` from the JSON
-    with the value of the `label` field. So a JSON declaring
-    `{name: "FlowAgent Runs Today", label: "Runs Today"}` ends up
-    creating a record named just "Runs Today" — and the workspace's
-    content blocks (which reference the explicit name) silently fail to
-    render.
-
-    We sidestep this by doing the upsert ourselves with
-    `doc.flags.name_set = True`, which tells Frappe to skip the autoname
-    rule and respect the explicit name.
-
-    We also clean up orphan records (anything in FlowAgent Core module
-    that isn't in our shipped JSON set) — that catches the "Runs Today"
-    style mis-named records left behind by previous installs.
+    Now that record names match their label/chart_name (i.e. align with
+    the autoname rules), Frappe's standard import does the right thing.
+    No need to set `flags.name_set` or do a manual upsert anymore.
     """
     import glob
-    import json as _json
     import os
+    from frappe.modules.import_file import import_file_by_path
 
     app_path = frappe.get_app_path("flowagent")
-    expected_names: dict[str, set[str]] = {
-        "Number Card": set(),
-        "Dashboard Chart": set(),
-    }
 
-    for subdir, doctype in (("number_card", "Number Card"),
-                            ("dashboard_chart", "Dashboard Chart")):
+    for subdir in ("number_card", "dashboard_chart"):
         pattern = os.path.join(
             app_path, "flowagent_core", subdir, "*", "*.json",
         )
         for path in sorted(glob.glob(pattern)):
             try:
-                with open(path) as f:
-                    spec = _json.load(f)
-                expected_name = spec.get("name")
-                if not expected_name:
-                    continue
-                expected_names[doctype].add(expected_name)
-                _upsert_with_explicit_name(doctype, expected_name, spec)
-                # Force is_public so the workspace can render the record
-                # regardless of the viewing user's role.
-                if frappe.db.exists(doctype, expected_name):
-                    if not frappe.db.get_value(doctype, expected_name, "is_public"):
-                        frappe.db.set_value(doctype, expected_name, "is_public", 1)
+                import_file_by_path(path, force=True)
             except Exception as e:
                 frappe.log_error(
-                    title=f"FlowAgent: failed to install {os.path.basename(path)}",
+                    title=f"FlowAgent: import failed for {os.path.basename(path)}",
                     message=f"{type(e).__name__}: {e}",
                 )
-
-    # Orphan cleanup: anything in our module that we no longer ship.
-    # Important safety check: we ONLY delete records whose name matches a
-    # `label` we shipped. That catches the "Runs Today"-style mis-named
-    # records that the v0.3.4/v0.3.5 import bug created (autonamed from
-    # the label field), without touching any cards/charts a user may
-    # have created themselves and tagged with module=FlowAgent Core.
-    shipped_labels: dict[str, set[str]] = {
-        "Number Card": set(),
-        "Dashboard Chart": set(),
-    }
-    for subdir, doctype, label_field in (
-        ("number_card",     "Number Card",     "label"),
-        ("dashboard_chart", "Dashboard Chart", "chart_name"),
-    ):
-        pattern = os.path.join(
-            app_path, "flowagent_core", subdir, "*", "*.json",
-        )
-        for path in sorted(glob.glob(pattern)):
-            try:
-                with open(path) as f:
-                    s = _json.load(f)
-                lbl = s.get(label_field)
-                if lbl:
-                    shipped_labels[doctype].add(lbl)
-            except Exception:
-                pass
-
-    for doctype, expected in expected_names.items():
-        try:
-            existing = frappe.get_all(
-                doctype,
-                filters={"module": "FlowAgent Core"},
-                pluck="name",
-            )
-        except Exception:
-            existing = []
-        for name in existing:
-            if name in expected:
-                continue
-            # Only delete if the record's name matches one of the labels
-            # we shipped — that's the signature of a record auto-named
-            # from a label by the v0.3.4/v0.3.5 bug.
-            if name not in shipped_labels[doctype]:
-                continue
-            try:
-                frappe.delete_doc(
-                    doctype, name,
-                    ignore_permissions=True, force=True,
-                )
-            except Exception as e:
-                frappe.log_error(
-                    title=f"FlowAgent: orphan cleanup failed for {doctype} {name}",
-                    message=f"{type(e).__name__}: {e}",
-                )
-
-
-def _upsert_with_explicit_name(doctype: str, name: str, spec: dict):
-    """Create or update a record, preserving the explicit name even
-    when the doctype's autoname rule would override it.
-
-    The critical flag is `doc.flags.name_set = True`, which Frappe's
-    naming logic checks before running autoname. Without it, the
-    `field:label` autoname on Number Card overwrites our explicit name.
-    """
-    SKIP = {"doctype", "creation", "modified", "modified_by", "owner",
-            "idx", "docstatus", "name"}
-
-    is_new = not frappe.db.exists(doctype, name)
-    if is_new:
-        doc = frappe.new_doc(doctype)
-        doc.flags.name_set = True
-        doc.name = name
-    else:
-        doc = frappe.get_doc(doctype, name)
-
-    for k, v in spec.items():
-        if k in SKIP:
-            continue
-        try:
-            doc.set(k, v)
-        except Exception:
-            # Field doesn't exist on this Frappe version — skip silently.
-            pass
-
-    doc.flags.ignore_permissions = True
-    doc.flags.ignore_mandatory = True
-    try:
-        if is_new:
-            doc.insert(ignore_permissions=True)
-        else:
-            doc.save()
-    except frappe.DuplicateEntryError:
-        # Already exists despite our existence check — race or rename
-        # collision. Move on.
-        pass
-    except Exception as e:
-        frappe.log_error(
-            title=f"FlowAgent: upsert failed for {doctype} {name}",
-            message=f"{type(e).__name__}: {e}",
-        )
 
 
 def _refresh_workspace():
     """Re-import the FlowAgent workspace from disk on every migrate.
 
-    Why: Frappe's standard workspace sync during migrate preserves user
-    edits, which is normally what you want — but here we ship layout
-    updates with new releases (number cards, charts, links to reports)
-    and want users on a fresh upgrade to see them.
-
-    We only force-refresh `is_standard=1` workspaces with no `for_user`
-    set — never touch a workspace someone has customised as their own.
+    Frappe normally preserves user edits to workspaces during migrate
+    (which would block our layout updates from landing). We only force
+    refresh `is_standard=1` workspaces with no `for_user` set — i.e.
+    the shared "system" copy — and never touch a personal customised
+    version.
     """
     try:
         if frappe.db.exists("Workspace", "FlowAgent"):
@@ -235,8 +161,6 @@ def _refresh_workspace():
                     ignore_permissions=True, force=True,
                 )
 
-        # Re-import from disk so the new layout takes effect immediately,
-        # without waiting for another migrate cycle.
         import os
         from frappe.modules.import_file import import_file_by_path
         ws_path = os.path.join(
@@ -246,7 +170,7 @@ def _refresh_workspace():
         if os.path.exists(ws_path):
             import_file_by_path(ws_path, force=True)
     except Exception as e:
-        # Workspace refresh is best-effort; never let it break migrate.
+        # Best-effort: never let workspace refresh break migrate.
         frappe.log_error(
             title="FlowAgent: workspace refresh skipped",
             message=f"{type(e).__name__}: {e}",

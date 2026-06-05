@@ -1,4 +1,5 @@
 {
+ "color": "#6366F1",
  "creation": "2026-06-05 12:00:00",
  "docstatus": 0,
  "doctype": "Number Card",
@@ -13,10 +14,9 @@
  "modified": "2026-06-05 12:00:00",
  "modified_by": "Administrator",
  "module": "FlowAgent Core",
- "name": "FlowAgent Runs Today",
+ "name": "Runs Today",
  "owner": "Administrator",
  "show_percentage_stats": 1,
  "stats_time_interval": "Daily",
- "type": "Document Type",
- "color": "#6366F1"
+ "type": "Document Type"
 }
