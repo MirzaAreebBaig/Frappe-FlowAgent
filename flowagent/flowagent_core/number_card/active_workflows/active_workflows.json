@@ -1,0 +1,22 @@
+{
+ "color": "#10B981",
+ "creation": "2026-06-05 12:00:00",
+ "docstatus": 0,
+ "doctype": "Number Card",
+ "document_type": "FlowAgent Workflow",
+ "dynamic_filters_json": "",
+ "filters_json": "[[\"FlowAgent Workflow\", \"enabled\", \"=\", 1, false]]",
+ "function": "Count",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "label": "Active Workflows",
+ "modified": "2026-06-05 12:00:00",
+ "modified_by": "Administrator",
+ "module": "FlowAgent Core",
+ "name": "Active Workflows",
+ "owner": "Administrator",
+ "show_percentage_stats": 1,
+ "stats_time_interval": "Daily",
+ "type": "Document Type"
+}

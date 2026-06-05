@@ -64,6 +64,20 @@ It's the kind of tool you'd reach for n8n or Zapier for, except:
 - **Per-node retry config** — mark flaky integrations (HTTP, Sheets, AI) as retry-3 while keeping write nodes at retry-0; configurable backoff delay
 - **Webhook HMAC verification** — optional per-workflow signing secret validates `X-Signature-256` against HMAC-SHA256 of the raw body, matching GitHub/Razorpay/generic webhook conventions
 
+**Workspace dashboard & reports**
+
+Install the app and the **FlowAgent** workspace shows up in the desk sidebar with:
+
+- 5 number cards across the top — runs today, failures today, average duration over the past week, AI spend this month, count of active workflows
+- 4 interactive charts — daily run volume, AI cost trend (last 30 days), status breakdown donut, top workflows by run count
+- 5 script reports linked from the workspace sidebar:
+  - **Workflow Performance** — per-workflow rollup: total runs, success rate (colour-coded), avg/max duration, AI tokens & cost, with a stacked Success vs Failed bar chart of the top 10 workflows
+  - **Run History** — filterable chronological list of every run with status, trigger, duration, AI cost, and the first line of any error; donut chart of status distribution
+  - **AI Cost Analysis** — daily / per-workflow / day-by-workflow breakdown of token usage with cost trend line and "only with cost" filter
+  - **Slowest Nodes** — top 100 slowest steps across the workflow library, grouped by (workflow, node), with avg/max/min ms and execution count
+  - **Error Analysis** — top errors by frequency, grouped by error message first-line so the same headline collapses regardless of stack trace details
+- All reports filter on date range + workflow at minimum, with report-specific filters like "step status" (slowest), "only with cost" (cost), "trigger contains" + "only with errors" (history)
+
 ---
 
 ## Install
