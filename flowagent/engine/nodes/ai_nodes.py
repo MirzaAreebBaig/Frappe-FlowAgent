@@ -340,10 +340,27 @@ class VisionNode(BaseExecutor):
         if file_url.startswith("http://") or file_url.startswith("https://"):
             return {"type": "image", "source": {"type": "url", "url": file_url}}
 
-        # Frappe private/public file path → resolve to bytes
+        # Frappe private/public file path → resolve to bytes.
+        # Defence in depth: even though workflow configs are admin-authored,
+        # the file_url is typically a Jinja template like {{ trigger.doc.attachment }}
+        # so a malicious document could feed an arbitrary path. We validate
+        # the resolved path is within Frappe's files directory before opening.
         from frappe.utils.file_manager import get_file_path
+        import os
         path = get_file_path(file_url)
-        with open(path, "rb") as fh:
+        resolved = os.path.realpath(path)
+        allowed_roots = [
+            os.path.realpath(frappe.get_site_path("public", "files")),
+            os.path.realpath(frappe.get_site_path("private", "files")),
+        ]
+        if not any(resolved.startswith(root + os.sep) or resolved == root
+                   for root in allowed_roots):
+            frappe.throw(
+                f"ai_vision: refusing to read file outside Frappe's files "
+                f"directory: {file_url}"
+            )
+
+        with open(resolved, "rb") as fh:  # nosemgrep: frappe-security-file-traversal
             raw = fh.read()
         media_type = "image/jpeg"
         if file_url.lower().endswith(".png"): media_type = "image/png"

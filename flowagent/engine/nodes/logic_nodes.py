@@ -397,7 +397,7 @@ class ApprovalNode(BaseExecutor):
         run.final_context = json.dumps(context.snapshot(), default=str)[:140000]
         run.flags.ignore_permissions = True
         run.save(ignore_permissions=True)
-        frappe.db.commit()
+        frappe.db.commit()  # nosemgrep: frappe-manual-commit  # Cross-process visibility: the approval node persists waiting state then returns PAUSE. The external HTTP callback endpoint must immediately be able to look up the run by waiting_token, so we commit before the email goes out.
 
         # Build callback URLs. We use frappe.utils.get_url so it works
         # behind reverse proxies / custom domains.

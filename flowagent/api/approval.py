@@ -125,7 +125,7 @@ def _fail_expired(run_name: str) -> None:
         "error_message": "Approval timed out — no decision received within the configured window.",
         "waiting_token": None,
     }, update_modified=False)
-    frappe.db.commit()
+    frappe.db.commit()  # nosemgrep: frappe-manual-commit  # Force visibility: the user is about to be shown the "expired" page; the failed status must be persisted before any subsequent retry/poll could re-read this run.
 
 
 def _html_response(title: str, body: str, error: bool = False, accent: str | None = None):

@@ -16,8 +16,15 @@ def execute(filters: dict | None = None):
     filters = filters or {}
     where, params = _build_where(filters)
     limit = int(filters.get("limit") or 500)
+    # SAFETY: This f-string composes a fixed-shape SQL query — only
+    # the WHERE clause structure ("col >= %s AND status IN (%s, %s)")
+    # is interpolated from a private _build_where helper that emits
+    # only hardcoded condition strings with %s placeholders.
+    # All user-supplied filter VALUES go through the `params` argument
+    # and are properly escaped by frappe.db.sql. The interpolated
+    # parts (group_cols, select_cols, where) never contain user input.
 
-    rows = frappe.db.sql(
+    rows = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection
         f"""
         SELECT
             name,

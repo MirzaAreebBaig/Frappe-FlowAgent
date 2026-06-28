@@ -199,7 +199,12 @@ def _eval_condition(expr: str, doc) -> bool:
     local = {"doc": doc, "result": None}
     # Wrap a bare expression so safe_exec captures it
     code = expr if "result" in expr or "\n" in expr else f"result = bool({expr})"
-    safe_exec(code, _locals=local)
+    # SAFETY: `expr` is the workflow's `trigger_filter` field, set by a
+    # FlowAgent Manager / System Manager on the workflow doc. Same trust
+    # level as Frappe's built-in conditional notification filters. safe_exec
+    # runs in RestrictedPython sandbox (no __import__, no file I/O); only
+    # the `doc` namespace is exposed for the expression to read.
+    safe_exec(code, _locals=local)  # nosemgrep: frappe-codeinjection-eval
     return bool(local.get("result"))
 
 

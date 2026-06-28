@@ -89,18 +89,9 @@ Install the app and the **FlowAgent** workspace shows up in the desk sidebar wit
 
 ## Install
 
-```bash
-cd ~/frappe-bench
-bench get-app https://github.com/MirzaAreebBaig/Frappe-FlowAgent
-bench --site <yoursite> install-app flowagent
-bench --site <yoursite> migrate
-bench restart    # required — the doc_events hook only loads after worker restart
-```
+See [INSTALL.md](./INSTALL.md) for setup instructions.
 
-Then in Frappe Desk:
-1. Open **FlowAgent Settings** and paste your Anthropic API key
-2. Open **FlowAgent → Open Studio** from the sidebar
-3. Hit **Templates** and pick one to start from, or click **AI Build** and describe what you want
+Once installed, open **FlowAgent Settings** in your desk and paste your Anthropic API key, then open **FlowAgent → Open Studio** from the sidebar. Pick a template to get started, or click **AI Build** and describe what you want — FlowAgent generates the workflow for you.
 
 If a workflow doesn't fire after enabling, click the **stethoscope** icon in the Studio toolbar — it tells you exactly what's wrong.
 

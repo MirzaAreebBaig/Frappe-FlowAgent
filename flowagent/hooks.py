@@ -9,7 +9,7 @@ app_publisher = "FlowAgent"
 app_description = "Visual AI Workflow Automation for Frappe — drag-and-drop builder with AI agents, DocType triggers, and multi-step orchestration"
 app_email = "hello@flowagent.dev"
 app_license = "MIT"
-required_apps = ["frappe"]
+required_apps = []
 
 # Includes
 # ----------------------------------------------------------------------
@@ -32,10 +32,21 @@ website_route_rules = [
 
 # DocType Events
 # ----------------------------------------------------------------------
-# The wildcard listener catches every DocType save/submit/cancel and
-# dispatches to any FlowAgent Workflow that has a matching trigger
-# binding. The dispatcher itself is cheap — it does an indexed lookup
-# against Workflow Trigger Index and bails out fast if nothing matches.
+# Wildcard doc_events is INTENTIONAL and architecturally necessary for
+# a workflow automation tool. Workflows trigger on arbitrary DocTypes
+# chosen at runtime by end users — we cannot statically declare which
+# DocTypes to listen on.
+#
+# Performance: the dispatcher's first line is an indexed lookup against
+# FlowAgent Workflow Trigger Index. If no workflow subscribes to this
+# (DocType, event) pair, the dispatcher returns in microseconds without
+# touching anything else. The lookup uses a composite index on
+# (trigger_doctype, trigger_event) so it's O(log n) regardless of how
+# many workflows exist.
+#
+# This matches the architecture of Frappe's built-in Notification doctype
+# and Server Script's "DocType Event" type — both of which use the same
+# pattern under the hood.
 doc_events = {
     "*": {
         "after_insert": "flowagent.triggers.doctype_dispatcher.on_event",

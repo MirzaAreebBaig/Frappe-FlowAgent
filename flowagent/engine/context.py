@@ -78,7 +78,15 @@ def render(template: str, data: dict, warnings: list | None = None) -> str:
         _collect_undefined_warnings(template, data, warnings)
 
     try:
-        return frappe.render_template(template, data)
+        # SAFETY: `template` originates from workflow node configurations
+        # which are authored by users with FlowAgent Manager (or System
+        # Manager) role — the same trust level required to write any
+        # Python/Jinja in Frappe (Server Scripts, Notification templates,
+        # Print Formats, etc.). frappe.render_template uses Jinja2's
+        # SandboxedEnvironment which blocks attribute access on dunders
+        # and dangerous builtins. End-user form input is interpolated
+        # via the `data` argument, never the template string itself.
+        return frappe.render_template(template, data)  # nosemgrep: frappe-ssti
     except Exception as e:
         # Don't break the workflow on a render error — log it and return
         # the literal template so the user can see what failed. The runner

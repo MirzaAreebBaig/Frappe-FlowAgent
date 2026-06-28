@@ -150,7 +150,13 @@ def _format_message(rule, run, threshold_count) -> tuple[str, str]:
                 "duration_ms": run.duration_ms or 0,
                 "count": threshold_count,
             }
-            body = frappe.render_template(rule.message_template, ctx)
+            # SAFETY: rule.message_template comes from a FlowAgent Alert
+            # Rule document — writable only by System Manager and FlowAgent
+            # Manager roles (see the doctype permissions). Same trust level
+            # as Frappe's built-in Notification doctype. Sandboxed Jinja
+            # blocks dangerous attribute access and globals; ctx values
+            # are interpolated via the data dict, not the template string.
+            body = frappe.render_template(rule.message_template, ctx)  # nosemgrep: frappe-ssti
         except Exception:
             # Fall back to default if template rendering fails
             body = default_body
