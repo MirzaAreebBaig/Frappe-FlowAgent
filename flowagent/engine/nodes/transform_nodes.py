@@ -50,7 +50,13 @@ class JinjaNode(BaseExecutor):
     def run(self, *, node, cfg, context, runner):
         template = cfg.get("template") or ""
         try:
-            return frappe.render_template(template, context.data)
+            # SAFETY: `template` comes from cfg.template which is set in
+            # the workflow node configuration by a FlowAgent Manager / System
+            # Manager (same trust level as Frappe Server Scripts and
+            # Notification templates). Sandboxed Jinja blocks dangerous
+            # attribute access. End-user input lives in context.data
+            # which is interpolated via the data dict argument.
+            return frappe.render_template(template, context.data)  # nosemgrep: frappe-ssti
         except Exception as e:
             frappe.throw(f"tf_jinja render error: {e}")
 
@@ -67,5 +73,11 @@ class PythonCodeNode(BaseExecutor):
         if not code:
             return None
         local = {"input": context.data, "context": context.data, "output": None}
-        safe_exec(code, _locals=local)
+        # SAFETY: `code` is authored by a FlowAgent Manager / System Manager —
+        # the same role required to write Frappe Server Scripts. safe_exec
+        # uses RestrictedPython (no __import__, no file I/O, no exec, no
+        # eval, attribute access gated through Frappe's allowlist). This
+        # node is the documented "escape hatch" for advanced users; the
+        # sandbox restrictions are the security boundary.
+        safe_exec(code, _locals=local)  # nosemgrep: frappe-codeinjection-eval
         return local.get("output")

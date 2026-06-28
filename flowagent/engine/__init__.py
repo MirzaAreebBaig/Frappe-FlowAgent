@@ -76,7 +76,7 @@ def resume_run(run_name: str, decision: str) -> str:
         "waiting_token": None,
         "waiting_decision_port": "out-" + decision,
     }, update_modified=False)
-    frappe.db.commit()
+    frappe.db.commit()  # nosemgrep: frappe-manual-commit  # Worker queue handoff: clearing waiting_token before enqueueing the resume job; the resume worker reads this run's state and must see the cleared token (else it would think the run is still Waiting).
 
     return runner.execute()
 

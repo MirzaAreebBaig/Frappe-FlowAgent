@@ -213,18 +213,22 @@ def _rate_limit_ok(form_name: str, ip: str, limit_per_hour: int) -> bool:
     cutoff = add_to_date(now_datetime(), hours=-1)
     # Count recent runs with this form's slug and IP in trigger_payload.
     # LIKE on JSON is gross but the alternative is a dedicated table —
-    # not worth it for this scale.
+    # not worth it for this scale. We escape LIKE metacharacters in the
+    # IP before interpolating so a malformed X-Forwarded-For header
+    # can't widen the search.
+    safe_ip = ip.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    slug = frappe.db.get_value("FlowAgent Form", form_name, "slug") or ""
     count = frappe.db.sql(
         """
         SELECT COUNT(*) FROM `tabFlowAgent Workflow Run`
         WHERE trigger_source = %s
           AND creation > %s
-          AND trigger_payload LIKE %s
+          AND trigger_payload LIKE %s ESCAPE '\\\\'
         """,
         (
-            f"form:{frappe.db.get_value('FlowAgent Form', form_name, 'slug')}",
+            f"form:{slug}",
             cutoff,
-            f'%"ip": "{ip}"%',
+            f'%"ip": "{safe_ip}"%',
         ),
     )[0][0]
     return count < limit_per_hour

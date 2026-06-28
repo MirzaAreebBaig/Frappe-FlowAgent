@@ -20,8 +20,11 @@ class FlowAgentWorkflow(Document):
         if self.trigger_type == "Webhook" and not self.webhook_path:
             self.webhook_path = frappe.generate_hash(length=16)
 
-    def after_save(self):
+    def on_update(self):
         # Re-index trigger bindings so the dispatcher can find this workflow fast.
+        # `on_update` is the correct Frappe controller hook that fires after any
+        # save (insert or update). `after_save` is NOT a valid hook name despite
+        # the misleading name — it never gets called.
         _rebuild_trigger_index(self)
         # Snapshot a version. We use a hash-based dedupe so spam-clicking Save
         # doesn't produce a thousand identical versions.

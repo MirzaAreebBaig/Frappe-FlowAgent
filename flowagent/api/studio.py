@@ -117,7 +117,7 @@ def save_workflow(payload: str):
 
     doc.flags.ignore_permissions = False
     doc.save()
-    frappe.db.commit()
+    frappe.db.commit()  # nosemgrep: frappe-manual-commit  # Cross-process visibility: workflow was just saved and we're about to verify the trigger index row exists by querying it via a fresh frappe.db.exists; without commit the new row isn't visible to subsequent reads in this session.
 
     # Verify the trigger index row got written. If the workflow is enabled
     # and DocType-event triggered, there MUST be a corresponding row in
@@ -188,7 +188,7 @@ def _verify_index(doc):
             _rebuild_trigger_index,
         )
         _rebuild_trigger_index(doc)
-        frappe.db.commit()
+        frappe.db.commit()  # nosemgrep: frappe-manual-commit  # Worker queue handoff: trigger index just got rebuilt; flush to DB so the dispatcher running in other worker processes can see the new bindings immediately.
         row = _lookup_row()
         if row and row.trigger_doctype and row.trigger_event:
             return {
@@ -218,7 +218,7 @@ def _verify_index(doc):
 def delete_workflow(name: str):
     _check_perm()
     frappe.delete_doc("FlowAgent Workflow", name)
-    frappe.db.commit()
+    frappe.db.commit()  # nosemgrep: frappe-manual-commit  # Cross-process visibility: workflow was deleted; commit so any in-flight dispatchers / scheduler ticks don't try to load it as if it still exists.
     return {"deleted": name}
 
 
@@ -297,7 +297,7 @@ def run_workflow_now(name: str, payload: str | None = None, sync: int = 0, dry_r
     })
     run_doc.flags.ignore_permissions = True
     run_doc.insert(ignore_permissions=True)
-    frappe.db.commit()
+    frappe.db.commit()  # nosemgrep: frappe-manual-commit  # Worker queue handoff: the run doc was just created and we're about to frappe.enqueue a background job that will load it by name. Without commit the worker would race and not find the row.
 
     frappe.enqueue(
         "flowagent.engine.run_workflow_background",

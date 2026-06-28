@@ -35,7 +35,7 @@ def cleanup_old_runs():
             # Skip stuck rows; next tick will try again
             continue
     if old:
-        frappe.db.commit()
+        frappe.db.commit()  # nosemgrep: frappe-manual-commit  # Batch operation: cleanup task deleted up to 500 stale runs; commit so DB locks release before this scheduled tick ends.
 
 
 def expire_waiting_runs():
@@ -69,7 +69,7 @@ def expire_waiting_runs():
                 title=f"FlowAgent: expire_waiting_runs failed for {r['name']}",
                 message=f"{type(e).__name__}: {e}",
             )
-    frappe.db.commit()
+    frappe.db.commit()  # nosemgrep: frappe-manual-commit  # Batch operation: expired waiting runs were marked Failed or re-enqueued for resume; commit so the next scheduler tick sees a clean state.
 
 
 def _resolve_expired_run(run_info: dict):

@@ -47,7 +47,11 @@ def after_install():
     _cleanup_legacy_assets()
     _refresh_dashboard_assets()
     _refresh_workspace()
-    frappe.db.commit()
+    _rebuild_all_trigger_indexes()
+    # Manual commit: install/migrate hooks run inside a transaction; we
+    # commit here so the changes are visible to subsequent app code and
+    # to any in-flight workers before the hook returns.
+    frappe.db.commit()  # nosemgrep: frappe-manual-commit
 
 
 def after_migrate():
@@ -57,7 +61,47 @@ def after_migrate():
     _cleanup_legacy_assets()
     _refresh_dashboard_assets()
     _refresh_workspace()
-    frappe.db.commit()
+    # v0.4.1 fix: prior versions used after_save which isn't a valid
+    # Frappe controller hook — so the trigger index never auto-rebuilt
+    # on save. Rebuild all indexes here to repair existing installs.
+    _rebuild_all_trigger_indexes()
+    # Manual commit: install/migrate hooks run inside a transaction; we
+    # commit here so subsequent code (and workers) see the changes.
+    frappe.db.commit()  # nosemgrep: frappe-manual-commit
+
+
+def _rebuild_all_trigger_indexes():
+    """Rebuild the FlowAgent Workflow Trigger Index for every workflow.
+
+    Cheap (one row per (workflow, doctype, event) binding) and idempotent.
+    Necessary on upgrade from <= 0.4.0 where after_save was used as the
+    hook name, which Frappe silently ignored — leaving trigger indexes
+    stale or empty.
+    """
+    try:
+        from flowagent.flowagent_core.doctype.flowagent_workflow.flowagent_workflow import (
+            _rebuild_trigger_index,
+        )
+    except Exception:
+        return  # Can't import (perhaps mid-migration) — skip silently
+
+    try:
+        for wf_name in frappe.get_all("FlowAgent Workflow", pluck="name"):
+            try:
+                wf = frappe.get_doc("FlowAgent Workflow", wf_name)
+                _rebuild_trigger_index(wf)
+            except Exception as e:
+                frappe.log_error(
+                    title=f"FlowAgent: trigger index rebuild failed for {wf_name}",
+                    message=f"{type(e).__name__}: {e}",
+                )
+    except Exception as e:
+        # If the FlowAgent Workflow doctype itself isn't ready yet
+        # (e.g. fresh install before doctype sync completes), just skip.
+        frappe.log_error(
+            title="FlowAgent: index rebuild scan failed",
+            message=f"{type(e).__name__}: {e}",
+        )
 
 
 def _ensure_role():

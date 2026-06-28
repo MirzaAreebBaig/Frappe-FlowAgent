@@ -243,5 +243,12 @@ class ServerScriptNode(BaseExecutor):
             # We can't statically know if a script mutates, so skip in dry mode.
             return {"_dry_run": True, "would_run_script": code[:200]}
         local = {"context": context.data, "result": None, "input": context.data}
-        safe_exec(code, _locals=local)
+        # SAFETY: `code` is authored in the workflow node config by a
+        # FlowAgent Manager / System Manager — the same role required for
+        # Frappe Server Scripts. safe_exec uses RestrictedPython (no
+        # __import__, file I/O, exec, eval; attribute access gated through
+        # Frappe's allowlist). The frappe_script node is the documented
+        # escape hatch for advanced users; the sandbox is the security
+        # boundary, not the static check.
+        safe_exec(code, _locals=local)  # nosemgrep: frappe-codeinjection-eval
         return local.get("result")

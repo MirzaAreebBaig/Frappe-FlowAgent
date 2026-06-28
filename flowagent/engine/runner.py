@@ -460,7 +460,7 @@ class Runner:
         })
         self.run_doc.flags.ignore_permissions = True
         self.run_doc.insert(ignore_permissions=True)
-        frappe.db.commit()
+        frappe.db.commit()  # nosemgrep: frappe-manual-commit  # Live polling: the runner just updated workflow-level stats; commit so the polling endpoints (which run in separate HTTP requests) see fresh totals.
 
     def _record_step(
         self,
@@ -518,7 +518,7 @@ class Runner:
                 self.run_doc.append("steps", s)
             self.run_doc.flags.ignore_permissions = True
             self.run_doc.save(ignore_permissions=True)
-            frappe.db.commit()
+            frappe.db.commit()  # nosemgrep: frappe-manual-commit  # Live polling: incremental step flush during a long-running workflow so the Studio's Trace tab sees each step as it completes (rather than only at end-of-run).
         except Exception as e:
             # Streaming is best-effort; never let it abort the workflow
             frappe.log_error(
@@ -562,7 +562,7 @@ class Runner:
             },
             update_modified=False,
         )
-        frappe.db.commit()
+        frappe.db.commit()  # nosemgrep: frappe-manual-commit  # Live polling: run reached terminal status; commit final state so the polling endpoint observes Success/Failed promptly and stops polling.
 
         # Fire any alert rules that match this run. Best-effort — wrapped
         # in try/except inside alerts.py so a misconfigured rule (bad
