@@ -29,7 +29,8 @@ def execute(filters: dict | None = None):
     # All user-supplied filter VALUES go through the `params` argument
     # and are properly escaped by frappe.db.sql. The interpolated
     # parts (group_cols, select_cols, where) never contain user input.
-    rows = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection
+    rows = frappe.db.sql(
+        # nosemgrep: frappe-sql-format-injection
         f"""
         SELECT
             r.workflow                                        AS workflow,

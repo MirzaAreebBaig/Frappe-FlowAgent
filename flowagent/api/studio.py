@@ -174,8 +174,24 @@ def _verify_index(doc):
 
     row = _lookup_row()
     if row and row.trigger_doctype and row.trigger_event:
+        # Index row exists. But: hooks.py builds doc_events at module
+        # load time. If the user just added a trigger on a DocType that
+        # wasn't in doc_events when the worker started, the dispatcher
+        # for THIS DocType isn't wired yet and won't fire until restart.
+        restart_needed = _restart_required_for(row.trigger_doctype, row.trigger_event)
+        if restart_needed:
+            return {
+                "ok": True, "registered": True,
+                "restart_needed": True,
+                "reason": (
+                    f"Listening on {row.trigger_doctype} / {row.trigger_event}. "
+                    f"Run `bench restart` on the server to activate this trigger — "
+                    f"FlowAgent only wires DocTypes seen at worker startup."
+                ),
+            }
         return {
             "ok": True, "registered": True,
+            "restart_needed": False,
             "reason": f"Listening on {row.trigger_doctype} / {row.trigger_event}",
         }
 
@@ -212,6 +228,51 @@ def _verify_index(doc):
         "ok": False, "registered": False,
         "reason": "Index row could not be created. Check Error Log for details.",
     }
+
+
+def _restart_required_for(trigger_doctype: str, trigger_event: str) -> bool:
+    """Check whether the current worker's loaded doc_events covers this
+    (DocType, event) pair. Returns True if a `bench restart` is needed
+    for the trigger to actually start firing.
+
+    Frappe's doc_events are loaded from hooks.py once at app discovery
+    time. FlowAgent builds them dynamically from the trigger index — so
+    when a user adds a new trigger DocType, hooks.py needs to be
+    re-evaluated (which happens on bench restart) for that DocType to
+    be wired into the global event dispatch.
+    """
+    try:
+        # Map FlowAgent event labels to Frappe controller hook names.
+        # Kept in sync with the same map in hooks.py:_build_doc_events.
+        event_map = {
+            "After Insert": "after_insert",
+            "After Save":   "on_update",
+            "After Submit": "on_submit",
+            "After Cancel": "on_cancel",
+            "After Delete": "on_trash",
+            "On Change":    "on_change",
+        }
+        hook_name = event_map.get(trigger_event)
+        if not hook_name:
+            return False  # Not a doctype event we'd register anyway
+
+        # frappe.get_hooks returns the merged hooks across all apps.
+        # We ask specifically for our handler under (doc_events, dt, hook).
+        handlers = frappe.get_hooks(
+            "doc_events", default={}, app_name="flowagent"
+        )
+        if not isinstance(handlers, dict):
+            return True  # Unexpected shape; assume restart needed
+        dt_handlers = handlers.get(trigger_doctype) or {}
+        return "flowagent.triggers.doctype_dispatcher.on_event" not in (
+            dt_handlers.get(hook_name) or []
+            if isinstance(dt_handlers.get(hook_name), list)
+            else [dt_handlers.get(hook_name)] if dt_handlers.get(hook_name) else []
+        )
+    except Exception:
+        # If anything goes wrong, err on the side of "restart needed"
+        # so the user gets the heads-up rather than a silent failure.
+        return True
 
 
 @frappe.whitelist()

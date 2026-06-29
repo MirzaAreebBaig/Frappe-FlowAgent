@@ -2204,7 +2204,15 @@ function saveWorkflow() {
                 // Surface trigger-registration status so the user knows
                 // whether the workflow is actually listening.
                 const idx = r.message.index_status || {};
-                if (idx.ok && idx.registered) {
+                if (idx.ok && idx.registered && idx.restart_needed) {
+                    // Successful save but the worker's loaded doc_events
+                    // doesn't yet include this trigger DocType — needs restart.
+                    frappe.show_alert({
+                        message: `Saved — bench restart needed for trigger to fire`,
+                        indicator: 'orange',
+                    }, 10);
+                    addLog(idx.reason, 'warn');
+                } else if (idx.ok && idx.registered) {
                     frappe.show_alert({
                         message: `Saved — ${idx.reason}`,
                         indicator: 'green',

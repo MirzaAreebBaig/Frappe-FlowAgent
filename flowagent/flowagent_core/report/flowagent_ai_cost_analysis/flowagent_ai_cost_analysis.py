@@ -48,7 +48,8 @@ def execute(filters: dict | None = None):
     # and are properly escaped by frappe.db.sql. The interpolated
     # parts (group_cols, select_cols, where) never contain user input.
 
-    rows = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection
+    rows = frappe.db.sql(
+        # nosemgrep: frappe-sql-format-injection
         f"""
         SELECT
             {select_cols},
@@ -113,7 +114,8 @@ def execute(filters: dict | None = None):
     # All user-supplied filter VALUES go through the `params` argument
     # and are properly escaped by frappe.db.sql. The interpolated
     # parts (group_cols, select_cols, where) never contain user input.
-    daily = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection
+    daily = frappe.db.sql(
+        # nosemgrep: frappe-sql-format-injection
         f"""
         SELECT DATE(creation) AS d, COALESCE(SUM(ai_cost_usd), 0) AS cost
         FROM `tabFlowAgent Workflow Run`

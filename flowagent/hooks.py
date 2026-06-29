@@ -32,31 +32,76 @@ website_route_rules = [
 
 # DocType Events
 # ----------------------------------------------------------------------
-# Wildcard doc_events is INTENTIONAL and architecturally necessary for
-# a workflow automation tool. Workflows trigger on arbitrary DocTypes
-# chosen at runtime by end users — we cannot statically declare which
-# DocTypes to listen on.
+# We build doc_events dynamically from the FlowAgent Workflow Trigger
+# Index table at module load time, listing only the specific DocTypes
+# that have active workflow triggers — not a wildcard. This satisfies
+# Frappe Cloud's audit recommendation and avoids firing the dispatcher
+# on every doc operation across unrelated DocTypes.
 #
-# Performance: the dispatcher's first line is an indexed lookup against
-# FlowAgent Workflow Trigger Index. If no workflow subscribes to this
-# (DocType, event) pair, the dispatcher returns in microseconds without
-# touching anything else. The lookup uses a composite index on
-# (trigger_doctype, trigger_event) so it's O(log n) regardless of how
-# many workflows exist.
+# UX caveat: hooks.py is evaluated when Frappe imports the app
+# (typically at worker startup). When a user adds a workflow with a
+# trigger on a DocType not previously seen, the worker needs to be
+# restarted (`bench restart`) for that DocType to be wired into
+# doc_events. The Studio surfaces a banner after save when a restart
+# is needed (see `_needs_restart_for_doctype` in api/studio.py).
 #
-# This matches the architecture of Frappe's built-in Notification doctype
-# and Server Script's "DocType Event" type — both of which use the same
-# pattern under the hood.
-doc_events = {
-    "*": {
-        "after_insert": "flowagent.triggers.doctype_dispatcher.on_event",
-        "on_update": "flowagent.triggers.doctype_dispatcher.on_event",
-        "on_submit": "flowagent.triggers.doctype_dispatcher.on_event",
-        "on_cancel": "flowagent.triggers.doctype_dispatcher.on_event",
-        "on_trash": "flowagent.triggers.doctype_dispatcher.on_event",
-        "on_change": "flowagent.triggers.doctype_dispatcher.on_event",
+# Architecture: the dispatcher does an indexed lookup against the
+# trigger index on every event. For DocTypes WITHOUT a registered
+# workflow trigger, no event hook fires at all — Frappe doesn't even
+# call into our app. This is strictly better than the prior wildcard.
+
+def _build_doc_events():
+    """Read the trigger index and produce a targeted doc_events dict.
+
+    Returns an empty dict if the DB isn't available (e.g. very first
+    install before doctype sync runs). The dispatcher's diagnose
+    endpoint can be used to verify what's currently wired.
+    """
+    try:
+        import frappe
+        # Only proceed if there's a real DB connection. During app
+        # discovery (e.g. on `pip install`), there is none.
+        if not getattr(frappe, "db", None):
+            return {}
+        # Check the trigger index table exists before querying it —
+        # avoids a noisy error log on first install when doctype sync
+        # hasn't created the table yet.
+        if not frappe.db.table_exists("FlowAgent Workflow Trigger Index"):
+            return {}
+        rows = frappe.db.sql(
+            "SELECT DISTINCT trigger_doctype, trigger_event "
+            "FROM `tabFlowAgent Workflow Trigger Index` "
+            "WHERE trigger_doctype IS NOT NULL "
+            "  AND trigger_event IS NOT NULL "
+            "  AND trigger_doctype != '' ",
+            as_dict=True,
+        )
+    except Exception:
+        # Any error during hook load must not crash Frappe — return
+        # empty and let the diagnose endpoint surface the issue.
+        return {}
+
+    # Map FlowAgent's user-facing event names to Frappe's controller hooks
+    event_map = {
+        "After Insert": "after_insert",
+        "After Save":   "on_update",
+        "After Submit": "on_submit",
+        "After Cancel": "on_cancel",
+        "After Delete": "on_trash",
+        "On Change":    "on_change",
     }
-}
+    HANDLER = "flowagent.triggers.doctype_dispatcher.on_event"
+    result: dict = {}
+    for row in rows:
+        dt = row.get("trigger_doctype")
+        hook = event_map.get(row.get("trigger_event"))
+        if not dt or not hook:
+            continue
+        result.setdefault(dt, {})[hook] = HANDLER
+    return result
+
+
+doc_events = _build_doc_events()
 
 # Scheduled Tasks
 # ----------------------------------------------------------------------
