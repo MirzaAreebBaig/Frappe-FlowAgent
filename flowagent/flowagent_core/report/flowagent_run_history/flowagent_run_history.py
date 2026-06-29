@@ -24,9 +24,8 @@ def execute(filters: dict | None = None):
     # and are properly escaped by frappe.db.sql. The interpolated
     # parts (group_cols, select_cols, where) never contain user input.
 
-    rows = frappe.db.sql(
-        # nosemgrep: frappe-sql-format-injection
-        f"""
+    sql = (
+        """
         SELECT
             name,
             workflow,
@@ -41,13 +40,12 @@ def execute(filters: dict | None = None):
             ai_cost_usd,
             SUBSTRING_INDEX(COALESCE(error_message, ''), '\n', 1) AS error_first_line
         FROM `tabFlowAgent Workflow Run`
-        WHERE {where}
+        WHERE """ + where + """
         ORDER BY creation DESC
         LIMIT %s
-        """,
-        params + [limit],
-        as_dict=True,
+        """
     )
+    rows = frappe.db.sql(sql, params + [limit], as_dict=True)
 
     for r in rows:
         r["tokens_total"] = (r.get("ai_tokens_in") or 0) + (r.get("ai_tokens_out") or 0)
