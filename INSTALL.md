@@ -33,6 +33,18 @@ If you're installing via Frappe Cloud, attach the app to your bench through the 
 3. Navigate to **FlowAgent → Open Studio** from the sidebar
 4. Click **Templates** to start from a ready-made workflow, or **AI Build** to describe one in natural language
 
+## Important: Adding new trigger DocTypes
+
+FlowAgent registers DocType triggers dynamically from the trigger index table — only the DocTypes that have at least one active workflow are wired into Frappe's event system. This avoids the wildcard performance overhead, but means a `bench restart` is required after creating the first workflow that triggers on a previously-unused DocType.
+
+The Studio surfaces this automatically. When you save a workflow, you'll see one of:
+- **Green toast**: `Listening on <DocType> / <Event>` — already wired, no restart needed
+- **Orange toast**: `bench restart needed for trigger to fire` — restart the worker
+
+Once a DocType has been wired (after restart), subsequent edits to workflows on the same DocType don't need a restart. Only new DocType triggers do.
+
+For Frappe Cloud sites, trigger a bench restart from the dashboard. For self-hosted setups, run `bench restart` from your bench directory.
+
 ## Verifying the install
 
 After install, the FlowAgent workspace should appear in the desk sidebar with:
