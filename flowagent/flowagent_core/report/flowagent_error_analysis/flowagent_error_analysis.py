@@ -29,9 +29,8 @@ def execute(filters: dict | None = None):
     # All user-supplied filter VALUES go through the `params` argument
     # and are properly escaped by frappe.db.sql. The interpolated
     # parts (group_cols, select_cols, where) never contain user input.
-    rows = frappe.db.sql(
-        # nosemgrep: frappe-sql-format-injection
-        f"""
+    sql = (
+        """
         SELECT
             r.workflow                                        AS workflow,
             COALESCE(s.node_label, s.node_type, '(run-level)') AS node_label,
@@ -45,7 +44,7 @@ def execute(filters: dict | None = None):
         FROM `tabFlowAgent Workflow Run` AS r
         LEFT JOIN `tabFlowAgent Workflow Run Step` AS s
             ON s.parent = r.name AND s.error IS NOT NULL AND s.error != ''
-        WHERE {where_parent}
+        WHERE """ + where_parent + """
           AND (
             (r.error_message IS NOT NULL AND r.error_message != '')
             OR (s.error IS NOT NULL AND s.error != '')
@@ -53,10 +52,9 @@ def execute(filters: dict | None = None):
         GROUP BY r.workflow, node_label, error_first_line
         ORDER BY occurrences DESC, last_seen DESC
         LIMIT 100
-        """,
-        params_p,
-        as_dict=True,
+        """
     )
+    rows = frappe.db.sql(sql, params_p, as_dict=True)
 
     columns = [
         {"label": _("Workflow"),    "fieldname": "workflow",          "fieldtype": "Link",

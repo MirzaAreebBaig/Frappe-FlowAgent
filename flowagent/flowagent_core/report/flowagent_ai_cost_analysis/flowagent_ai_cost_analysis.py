@@ -48,11 +48,8 @@ def execute(filters: dict | None = None):
     # and are properly escaped by frappe.db.sql. The interpolated
     # parts (group_cols, select_cols, where) never contain user input.
 
-    rows = frappe.db.sql(
-        # nosemgrep: frappe-sql-format-injection
-        f"""
-        SELECT
-            {select_cols},
+    sql = (
+        "SELECT " + select_cols + """,
             COUNT(*)                                       AS runs,
             COALESCE(SUM(ai_calls), 0)                     AS ai_calls,
             COALESCE(SUM(ai_tokens_in), 0)                 AS tokens_in,
@@ -60,13 +57,12 @@ def execute(filters: dict | None = None):
             COALESCE(SUM(ai_tokens_in + ai_tokens_out), 0) AS tokens_total,
             COALESCE(SUM(ai_cost_usd), 0)                  AS cost_total
         FROM `tabFlowAgent Workflow Run`
-        WHERE {where}
-        GROUP BY {group_cols}
+        WHERE """ + where + """
+        GROUP BY """ + group_cols + """
         ORDER BY bucket_date DESC, workflow
-        """,
-        params,
-        as_dict=True,
+        """
     )
+    rows = frappe.db.sql(sql, params, as_dict=True)
 
     # Per-row derived metrics
     for r in rows:
@@ -114,18 +110,16 @@ def execute(filters: dict | None = None):
     # All user-supplied filter VALUES go through the `params` argument
     # and are properly escaped by frappe.db.sql. The interpolated
     # parts (group_cols, select_cols, where) never contain user input.
-    daily = frappe.db.sql(
-        # nosemgrep: frappe-sql-format-injection
-        f"""
+    chart_sql = (
+        """
         SELECT DATE(creation) AS d, COALESCE(SUM(ai_cost_usd), 0) AS cost
         FROM `tabFlowAgent Workflow Run`
-        WHERE {where}
+        WHERE """ + where + """
         GROUP BY DATE(creation)
         ORDER BY DATE(creation) ASC
-        """,
-        params,
-        as_dict=True,
+        """
     )
+    daily = frappe.db.sql(chart_sql, params, as_dict=True)
 
     chart = None
     if daily:

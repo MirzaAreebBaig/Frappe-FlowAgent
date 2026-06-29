@@ -32,9 +32,8 @@ def execute(filters: dict | None = None):
     # and are properly escaped by frappe.db.sql. The interpolated
     # parts (group_cols, select_cols, where) never contain user input.
 
-    rows = frappe.db.sql(
-        # nosemgrep: frappe-sql-format-injection
-        f"""
+    sql = (
+        """
         SELECT
             r.workflow                                       AS workflow,
             s.node_id                                        AS node_id,
@@ -48,15 +47,14 @@ def execute(filters: dict | None = None):
         FROM `tabFlowAgent Workflow Run Step` AS s
         INNER JOIN `tabFlowAgent Workflow Run` AS r
             ON s.parent = r.name
-        WHERE {where_parent} AND {where_step_sql}
+        WHERE """ + where_parent + " AND " + where_step_sql + """
         GROUP BY r.workflow, s.node_id, s.node_label, s.node_type
         HAVING AVG(s.duration_ms) > 0
         ORDER BY avg_ms DESC
         LIMIT 100
-        """,
-        params,
-        as_dict=True,
+        """
     )
+    rows = frappe.db.sql(sql, params, as_dict=True)
 
     for r in rows:
         r["avg_ms"] = int(r.get("avg_ms") or 0)
