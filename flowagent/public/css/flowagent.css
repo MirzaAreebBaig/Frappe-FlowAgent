@@ -2252,3 +2252,20 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
     gap: 10px;
     flex-shrink: 0;
 }
+
+/* Small version pill in the modal header title — helps diagnose
+   asset-cache issues by making it visually obvious which version is
+   actually loaded in the browser. */
+.fa-eng-ver {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #ECFEFF;
+    color: #0891B2;
+    font-family: var(--fa-font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+}
