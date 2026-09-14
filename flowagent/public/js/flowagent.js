@@ -1010,7 +1010,7 @@ window.flowagent_studio_html = function () {
                             <i class="ti ti-robot"></i>
                         </div>
                         <div>
-                            <div class="fa-ai-modal-title">FlowAgent Engineer <span class="fa-eng-ver">v0.5.3</span></div>
+                            <div class="fa-ai-modal-title">FlowAgent Engineer <span class="fa-eng-ver">v0.5.4</span></div>
                             <div class="fa-ai-modal-sub">Describe your goal — we'll design, build, test, and self-correct until it works.</div>
                         </div>
                         <button class="fa-ai-modal-close" data-action="engineer-modal-close" title="Close (Esc)">
@@ -2229,10 +2229,14 @@ function pollEngineerStatus() {
 }
 
 function renderEngineerStatus(job) {
-    // Status line
+    // Status line — show current phase prominently when running
     const statusLine = document.getElementById('fa-eng-status-line');
     const spinner = document.getElementById('fa-eng-spinner');
-    statusLine.textContent = job.status || 'running';
+    if (job.status !== 'finished') {
+        // While running, show the phase (which describes what's happening
+        // NOW) rather than the coarse status.
+        statusLine.textContent = job.phase || job.status || 'running';
+    }
 
     // Iterations — append the new ones
     if (job.iterations && job.iterations.length) {
@@ -2294,15 +2298,70 @@ function renderIterationCard(it) {
     const nodeCount = (it.workflow && (it.workflow.nodes || []).length) || 0;
     const issue = (it.verdict && it.verdict.issue) || '';
     const reasoning = (it.verdict && it.verdict.reasoning) || '';
+    const designReasoning = (it.workflow && it.workflow.reasoning) || '';
+
+    // Phase timeline — each phase gets its timing badge
+    const phases = [
+        { name: 'Design',   ms: it.design_ms },
+        { name: 'Save',     ms: it.build_ms  },
+        { name: 'Test',     ms: it.test_ms   },
+        { name: 'Analyze',  ms: it.analyze_ms },
+    ].filter(p => p.ms != null);
+    const phasesHtml = phases.length ? `
+        <div class="fa-eng-iter-phases">
+            ${phases.map(p => `
+                <span class="fa-eng-iter-phase">
+                    <span class="fa-eng-iter-phase-name">${p.name}</span>
+                    <span class="fa-eng-iter-phase-ms">${p.ms}ms</span>
+                </span>
+            `).join('<span class="fa-eng-iter-phase-arrow">›</span>')}
+        </div>
+    ` : '';
+
+    // Step-by-step results
+    const steps = it.run_steps || [];
+    const stepsHtml = steps.length ? `
+        <div class="fa-eng-iter-steps">
+            <div class="fa-eng-iter-steps-title">Test run steps:</div>
+            ${steps.map(s => {
+                const ok = s.status === 'Success';
+                const failed = s.status === 'Failed';
+                const icon = ok ? '✓' : (failed ? '✗' : '⋯');
+                const cls  = ok ? 'ok' : (failed ? 'err' : 'skip');
+                const err  = s.error ? `<div class="fa-eng-iter-step-err">${frappe.utils.escape_html(s.error.slice(0, 240))}</div>` : '';
+                return `
+                    <div class="fa-eng-iter-step fa-eng-iter-step-${cls}">
+                        <span class="fa-eng-iter-step-icon">${icon}</span>
+                        <span class="fa-eng-iter-step-idx">${s.index ?? '?'}</span>
+                        <span class="fa-eng-iter-step-label">${frappe.utils.escape_html(s.node_label || s.node_type || '?')}</span>
+                        <span class="fa-eng-iter-step-type">${frappe.utils.escape_html(s.node_type || '')}</span>
+                        <span class="fa-eng-iter-step-ms">${s.duration_ms || 0}ms</span>
+                        ${err}
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    ` : '';
+
+    const runErrHtml = it.run_error ? `
+        <div class="fa-eng-iter-runerr">
+            <b>Run error:</b> ${frappe.utils.escape_html(it.run_error.slice(0, 400))}
+        </div>
+    ` : '';
+
     card.innerHTML = `
         <div class="fa-eng-iter-head">
             <span class="fa-eng-iter-num">Iteration ${it.iteration}</span>
-            <span class="fa-eng-iter-badge fa-eng-badge-${success ? 'ok' : 'warn'}">${success ? 'success' : status}</span>
+            <span class="fa-eng-iter-badge fa-eng-badge-${success ? 'ok' : 'warn'}">${success ? 'goal achieved' : status}</span>
         </div>
         <div class="fa-eng-iter-body">
-            <div class="fa-eng-iter-meta">${nodeCount} nodes → ${stepCount} steps ran</div>
-            ${reasoning ? `<div class="fa-eng-iter-reasoning">${frappe.utils.escape_html(reasoning)}</div>` : ''}
-            ${issue && !success ? `<div class="fa-eng-iter-issue">${frappe.utils.escape_html(issue)}</div>` : ''}
+            <div class="fa-eng-iter-meta">${nodeCount} nodes designed → ${stepCount} test step(s) ran</div>
+            ${phasesHtml}
+            ${designReasoning ? `<div class="fa-eng-iter-section"><span class="fa-eng-iter-label">Design reasoning:</span> ${frappe.utils.escape_html(designReasoning)}</div>` : ''}
+            ${stepsHtml}
+            ${runErrHtml}
+            ${reasoning ? `<div class="fa-eng-iter-section"><span class="fa-eng-iter-label">Analyzer:</span> ${frappe.utils.escape_html(reasoning)}</div>` : ''}
+            ${issue && !success ? `<div class="fa-eng-iter-issue"><b>Issue to fix:</b> ${frappe.utils.escape_html(issue)}</div>` : ''}
         </div>
     `;
     return card;

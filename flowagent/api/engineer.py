@@ -195,6 +195,7 @@ def get_status(job_id: str, since_iteration: int = 0,
     return {
         "job_id": job.get("job_id"),
         "status": job.get("status"),
+        "phase":  job.get("phase"),
         "goal": job.get("goal"),
         "workflow_name": job.get("workflow_name"),
         "max_iterations": job.get("max_iterations"),
@@ -243,26 +244,45 @@ def _run_loop(engineering_job_id: str) -> None:
         return
 
     try:
-        _update_job(job_id, status="running")
-        _append_log(job_id, f"Starting engineer with goal: {job['goal'][:200]}", "info")
+        _update_job(job_id, status="running", phase="starting")
+        _append_log(job_id, f"🚀 Engineer starting  •  goal: {job['goal'][:180]}", "info")
+        _append_log(job_id,
+                    f"⚙️  Config  •  max iterations: {job['max_iterations']}  •  "
+                    f"test mode: {job.get('test_mode', 'dry_run')}"
+                    + (f"  •  iterating on existing workflow: {job['workflow_name']}"
+                       if job.get('workflow_name') else "  •  will create a new workflow"),
+                    "info")
 
         prior_workflow: dict | None = None
         prior_error: str | None = None
         prior_run_summary: dict | None = None
         workflow_name = job.get("workflow_name")
+        # Use the enqueuer as the runner user — frappe.session.user in a
+        # background worker is unreliable and can be Guest.
+        runner_user = job.get("started_by") or "Administrator"
 
         for i in range(job["max_iterations"]):
             # Check cancellation before each iteration
             fresh = _get_job(job_id)
             if fresh and fresh.get("cancel_requested"):
+                _append_log(job_id, "🛑 Cancelled by user", "warn")
                 _finalize(job_id, "cancelled", "User cancelled")
                 return
 
             iter_num = i + 1
-            _update_job(job_id, status=f"designing (iteration {iter_num})")
-            _append_log(job_id, f"── Iteration {iter_num}/{job['max_iterations']} ──", "info")
+            _update_job(job_id, status=f"iteration {iter_num}", phase="starting", current_iteration=iter_num)
+            _append_log(job_id, f"━━━ Iteration {iter_num} of {job['max_iterations']} ━━━", "phase")
 
-            # Step 1: Design
+            # ---------------- PHASE 1: DESIGN ----------------
+            _update_job(job_id, phase=f"designing (iter {iter_num})")
+            if iter_num == 1:
+                _append_log(job_id, "🎨 Designing initial workflow with Claude…", "info")
+            else:
+                _append_log(job_id,
+                            f"🔧 Refining workflow with Claude "
+                            f"(fixing: {(prior_error or 'unknown')[:120]}…)",
+                            "info")
+            t0 = time.monotonic()
             try:
                 design = _design(
                     goal=job["goal"],
@@ -273,60 +293,117 @@ def _run_loop(engineering_job_id: str) -> None:
                     workflow_name_hint=workflow_name,
                 )
             except Exception as e:
-                _append_log(job_id, f"Design failed: {type(e).__name__}: {e}", "error")
-                _finalize(job_id, "failed", f"Design error: {e}")
+                _append_log(job_id, f"❌ Design failed: {type(e).__name__}: {e}", "error")
+                _finalize(job_id, "failed", f"Design error: {e}", workflow_name)
                 return
+            design_ms = int((time.monotonic() - t0) * 1000)
 
-            _append_log(job_id,
-                        f"Designed: {design.get('workflow_name', 'unnamed')} "
-                        f"({len(design.get('nodes', []))} nodes)",
-                        "info")
+            nodes = design.get("nodes", []) or []
+            edges = design.get("edges", []) or []
+            trig = design.get("trigger") or {}
+            trig_desc = trig.get("type", "?")
+            if trig.get("doctype"): trig_desc += f" / {trig['doctype']}"
+            if trig.get("event"):   trig_desc += f" / {trig['event']}"
+            node_types = ", ".join(sorted(set((n.get("type") or "?") for n in nodes)))
+            _append_log(job_id, f"   ✓ Design received in {design_ms}ms", "info")
+            _append_log(job_id, f"     ├─ Workflow: {design.get('workflow_name', 'unnamed')}", "info")
+            _append_log(job_id, f"     ├─ Trigger: {trig_desc}", "info")
+            _append_log(job_id, f"     ├─ Structure: {len(nodes)} nodes, {len(edges)} edges", "info")
+            _append_log(job_id, f"     ├─ Node types: {node_types or '(none)'}", "info")
+            reasoning = (design.get("reasoning") or "").strip()
+            if reasoning:
+                _append_log(job_id, f"     └─ Reasoning: {reasoning[:280]}", "info")
+            tp = design.get("test_payload") or {}
+            _append_log(job_id, f"       Test payload: {list(tp.keys()) if tp else '(empty)'}", "info")
 
-            # Step 2: Build (save workflow)
-            _update_job(job_id, status=f"building (iteration {iter_num})")
+            # ---------------- PHASE 2: BUILD ----------------
+            _update_job(job_id, phase=f"saving (iter {iter_num})")
+            _append_log(job_id, "💾 Saving workflow to database…", "info")
+            t0 = time.monotonic()
             try:
                 saved_name = _build(design, workflow_name)
                 workflow_name = saved_name
             except Exception as e:
-                _append_log(job_id, f"Build failed: {type(e).__name__}: {e}", "error")
-                # Feed the build error back into the next iteration
+                build_ms = int((time.monotonic() - t0) * 1000)
+                _append_log(job_id, f"❌ Save failed after {build_ms}ms: {type(e).__name__}: {e}", "error")
+                # Feed the build error back into the next iteration so
+                # Claude can fix the invalid graph.
                 prior_workflow = design
-                prior_error = f"Save failed: {e}"
+                prior_error = f"Save rejected the workflow: {e}"
                 prior_run_summary = None
                 _append_iteration(job_id, {
                     "iteration": iter_num,
                     "phase": "build",
                     "workflow": design,
-                    "error": str(e),
-                    "verdict": {"success": False, "issue": f"Could not save: {e}"},
+                    "run_status": "SaveError",
+                    "run_error": str(e),
+                    "run_steps": [],
+                    "run_steps_count": 0,
+                    "design_ms": design_ms,
+                    "verdict": {"success": False,
+                                "issue": f"Could not save: {e}",
+                                "reasoning": ""},
                 })
                 continue
+            build_ms = int((time.monotonic() - t0) * 1000)
+            _append_log(job_id, f"   ✓ Saved as '{workflow_name}' in {build_ms}ms", "success")
 
-            _append_log(job_id, f"Saved as {workflow_name}", "info")
-
-            # Step 3: Test
-            _update_job(job_id, status=f"testing (iteration {iter_num})")
+            # ---------------- PHASE 3: TEST ----------------
+            _update_job(job_id, phase=f"testing (iter {iter_num})")
+            test_mode = job.get("test_mode", "dry_run")
+            _append_log(job_id, f"🧪 Testing workflow in {test_mode} mode…", "info")
+            t0 = time.monotonic()
             try:
                 run_summary = _test(
                     workflow_name=workflow_name,
                     test_payload=design.get("test_payload", {}),
-                    test_mode=job.get("test_mode", "dry_run"),
+                    test_mode=test_mode,
+                    user=runner_user,
                 )
             except Exception as e:
-                _append_log(job_id, f"Test setup failed: {e}", "error")
+                _append_log(job_id, f"❌ Test setup crashed: {type(e).__name__}: {e}", "error")
                 run_summary = {
                     "status": "Failed",
-                    "error_message": f"Test setup failed: {e}",
+                    "error_message": f"Test setup crashed: {type(e).__name__}: {e}",
                     "steps": [],
                 }
+            test_ms = int((time.monotonic() - t0) * 1000)
 
+            steps = run_summary.get("steps", []) or []
+            run_status = run_summary.get("status", "?")
+            run_err = (run_summary.get("error_message") or "").strip()
+            status_icon = "✓" if run_status == "Success" else ("⧗" if run_status == "Waiting" else "✗")
+            status_level = "success" if run_status == "Success" else ("warn" if run_status == "Waiting" else "error")
             _append_log(job_id,
-                        f"Test run finished: {run_summary.get('status')} "
-                        f"({len(run_summary.get('steps', []))} steps)",
-                        "info" if run_summary.get("status") == "Success" else "warn")
+                        f"   {status_icon} Test complete in {test_ms}ms  •  "
+                        f"status: {run_status}  •  {len(steps)} step(s) executed",
+                        status_level)
 
-            # Step 4: Analyze
-            _update_job(job_id, status=f"analyzing (iteration {iter_num})")
+            # Per-step play-by-play (cap to keep log tape scannable)
+            for step in steps[:15]:
+                s_status = step.get("status", "?")
+                s_icon = "✓" if s_status == "Success" else ("⋯" if s_status == "Skipped" else "✗")
+                s_lvl  = "info" if s_status == "Success" else ("info" if s_status == "Skipped" else "error")
+                _append_log(
+                    job_id,
+                    f"     {s_icon} step {step.get('index','?')}: "
+                    f"{step.get('node_label') or step.get('node_type') or '?'} "
+                    f"({step.get('node_type','?')}) — {s_status} in {step.get('duration_ms',0)}ms",
+                    s_lvl,
+                )
+                s_err = (step.get("error") or "").strip()
+                if s_err:
+                    _append_log(job_id, f"        ↳ {s_err[:220]}", "error")
+            if len(steps) > 15:
+                _append_log(job_id, f"     … and {len(steps) - 15} more step(s)", "info")
+
+            if run_err:
+                _append_log(job_id, f"   Run error: {run_err[:400]}", "error")
+
+            # ---------------- PHASE 4: ANALYZE ----------------
+            _update_job(job_id, phase=f"analyzing (iter {iter_num})")
+            _append_log(job_id, "🔍 Analyzing outcome…", "info")
+            t0 = time.monotonic()
             try:
                 verdict = _analyze(
                     goal=job["goal"],
@@ -334,44 +411,87 @@ def _run_loop(engineering_job_id: str) -> None:
                     run_summary=run_summary,
                 )
             except Exception as e:
-                _append_log(job_id, f"Analysis failed: {e} — assuming iterate", "warn")
+                _append_log(job_id, f"⚠ Analysis crashed: {e} — treating as needs-fix", "warn")
                 verdict = {
                     "success": False,
                     "issue": f"Analysis error: {e}",
                     "reasoning": "",
                 }
+            analyze_ms = int((time.monotonic() - t0) * 1000)
 
+            v_icon = "✓" if verdict.get("success") else "✗"
+            v_lvl  = "success" if verdict.get("success") else "warn"
+            _append_log(job_id,
+                        f"   {v_icon} Verdict: "
+                        f"{'GOAL ACHIEVED' if verdict.get('success') else 'NEEDS REFINEMENT'} "
+                        f"(analysis {analyze_ms}ms)",
+                        v_lvl)
+            v_reasoning = (verdict.get("reasoning") or "").strip()
+            v_issue     = (verdict.get("issue") or "").strip()
+            if v_reasoning:
+                _append_log(job_id, f"     Reasoning: {v_reasoning[:300]}", "info")
+            if v_issue and not verdict.get("success"):
+                _append_log(job_id, f"     Issue: {v_issue[:300]}", "warn")
+
+            # ---------------- Record & advance ----------------
             _append_iteration(job_id, {
                 "iteration": iter_num,
                 "phase": "complete",
                 "workflow": design,
                 "run_name": run_summary.get("name"),
-                "run_status": run_summary.get("status"),
-                "run_error": run_summary.get("error_message"),
-                "run_steps_count": len(run_summary.get("steps", [])),
+                "run_status": run_status,
+                "run_error": run_err,
+                "run_steps": steps[:20],   # keep for UI display
+                "run_steps_count": len(steps),
+                "design_ms": design_ms,
+                "build_ms": build_ms,
+                "test_ms": test_ms,
+                "analyze_ms": analyze_ms,
                 "verdict": verdict,
             })
 
             if verdict.get("success"):
-                _append_log(job_id, f"✓ Goal achieved on iteration {iter_num}", "success")
-                _finalize(job_id, "success", verdict.get("reasoning") or "Objective achieved", workflow_name)
+                _append_log(job_id, f"🎉 Goal achieved on iteration {iter_num}", "success")
+                _finalize(job_id, "success",
+                          verdict.get("reasoning") or "Objective achieved",
+                          workflow_name)
                 return
 
-            # Continue: feed forward into the next iteration
-            issue = verdict.get("issue") or run_summary.get("error_message") or "Unknown issue"
-            _append_log(job_id, f"Not done: {issue[:200]}", "warn")
+            # Build the refinement context for next iteration
+            # ---------------------------------------------------
+            # We want Claude to see: the specific step that failed, its
+            # error, its input. That's what unlocks a real fix vs a
+            # regenerate-with-slight-tweaks.
+            failing_step = None
+            for step in steps:
+                if step.get("status") == "Failed":
+                    failing_step = step
+                    break
+
+            issue = v_issue or run_err or "Analyzer said the workflow didn't fully meet the goal."
+            if failing_step:
+                issue = (
+                    f"Step {failing_step.get('index','?')} "
+                    f"({failing_step.get('node_label') or failing_step.get('node_type')}, "
+                    f"type={failing_step.get('node_type')}) FAILED with: "
+                    f"{(failing_step.get('error') or 'no error message').strip()[:300]}"
+                )
+                _append_log(job_id, f"   → will focus refinement on step {failing_step.get('index')}", "info")
 
             prior_workflow = design
             prior_error = issue
             prior_run_summary = _summarize_run_for_feedback(run_summary)
 
-        _append_log(job_id, "Max iterations reached without success", "warn")
-        _finalize(job_id, "max_iterations",
-                  "Ran out of iterations. Latest workflow saved — inspect the run history and refine manually.",
-                  workflow_name)
+        _append_log(job_id, "⏱ Max iterations reached without success", "warn")
+        _finalize(
+            job_id, "max_iterations",
+            "Ran out of iterations. Latest workflow saved — inspect the "
+            "iteration cards above to see what went wrong, then refine manually.",
+            workflow_name,
+        )
 
     except Exception as e:
-        _append_log(job_id, f"Fatal error: {type(e).__name__}: {e}", "error")
+        _append_log(job_id, f"💥 Fatal error: {type(e).__name__}: {e}", "error")
         frappe.log_error(
             title=f"FlowAgent Engineer: fatal error in job {job_id}",
             message=f"{type(e).__name__}: {e}\n\n{traceback.format_exc()}",
@@ -430,37 +550,58 @@ def _design(goal: str, iteration: int, prior_workflow: dict | None,
     if iteration == 1:
         user_msg = (
             f"Design a workflow for this goal:\n\n{goal}\n\n"
-            "Additionally, include a `test_payload` field: a synthetic "
-            "trigger payload we can use to dry-run this workflow and "
-            "verify it wires up correctly. For a DocType trigger, the "
-            "payload should be shaped like "
-            "{\"doc\": {...doctype fields...}, \"doctype\": \"...\", "
-            "\"event\": \"...\"}. For a Manual trigger, an empty object "
-            "is fine.\n\n"
-            "Include a brief `reasoning` field (1-3 sentences) "
-            "explaining the design approach."
+            "REQUIREMENTS:\n"
+            "1. Include a `test_payload` field with realistic sample data "
+            "   we can use to dry-run the workflow. For a DocType trigger, "
+            "   shape it as {\"doc\": {...doctype fields with sensible "
+            "   values...}, \"doctype\": \"...\", \"event\": \"...\"}. For "
+            "   a Manual trigger, an empty object is fine.\n"
+            "2. Include a `reasoning` field (2-4 sentences) explaining "
+            "   why this shape solves the goal.\n"
+            "3. Use real DocType names and real field names that would "
+            "   exist in Frappe/ERPNext — don't invent DocTypes.\n"
+            "4. Every node's `cfg` fields must be populated (no empty "
+            "   values for required fields like `prompt`, `to`, `subject`, "
+            "   `doctype`, etc.)."
         )
     else:
         prior_graph = json.dumps({
             "trigger": prior_workflow.get("trigger"),
-            "nodes":   prior_workflow.get("nodes"),
+            "nodes":   [{"id": n.get("id"), "type": n.get("type"),
+                         "label": n.get("label"),
+                         "cfg": n.get("cfg", {})} for n in prior_workflow.get("nodes", [])],
             "edges":   prior_workflow.get("edges"),
         }, indent=2)[:6000]
         user_msg = (
             f"GOAL: {goal}\n\n"
-            f"PREVIOUS ATTEMPT (iteration {iteration - 1}):\n"
-            f"{prior_graph}\n\n"
-            f"WHAT HAPPENED WHEN TESTED:\n{prior_error or 'Unknown'}\n\n"
+            f"ITERATION {iteration} — PREVIOUS ATTEMPT FAILED.\n\n"
+            f"THE WORKFLOW YOU BUILT LAST TIME:\n{prior_graph}\n\n"
+            f"WHAT WENT WRONG:\n{prior_error or 'Unknown'}\n\n"
         )
         if prior_run_summary:
             user_msg += (
-                f"RUN DETAILS:\n{json.dumps(prior_run_summary, indent=2)[:3000]}\n\n"
+                "TEST RUN DETAILS (which steps ran, which failed):\n"
+                f"{json.dumps(prior_run_summary, indent=2)[:3500]}\n\n"
             )
         user_msg += (
-            "Fix the workflow so the goal is achieved. Return the FULL "
-            "corrected workflow JSON (not just the delta), plus an "
-            "updated `test_payload` and a short `reasoning` field "
-            "explaining what you changed and why."
+            "YOUR JOB: fix the specific issue above. Do not regenerate a "
+            "similar workflow — CHANGE something concrete that addresses "
+            "the failure.\n\n"
+            "Common fixes to consider:\n"
+            "- If a node's cfg field was empty or wrong → fill it correctly\n"
+            "- If a DocType or field name didn't exist → use a real one\n"
+            "- If a step's input was missing → add an upstream node to "
+            "  produce that value, or change the Jinja reference to a "
+            "  variable that actually exists in context\n"
+            "- If the workflow was missing a whole step (e.g. goal said "
+            "  'send email' but no int_email node) → add the node and "
+            "  wire it up\n"
+            "- If the trigger's test_payload didn't cover a field the "
+            "  workflow reads → add that field to test_payload\n\n"
+            "In `reasoning`, name the SPECIFIC change you made and why "
+            "it fixes the failure. Don't be generic. Return the FULL "
+            "corrected workflow (not a delta), plus the updated "
+            "`test_payload` and `reasoning`."
         )
 
     engineer_system = SYSTEM_PROMPT + "\n\n" + (
@@ -535,12 +676,17 @@ def _build(design: dict, existing_name: str | None) -> str:
 # ---------------------------------------------------------------------------
 # Test (dry-run the workflow with the synthetic payload)
 # ---------------------------------------------------------------------------
-def _test(workflow_name: str, test_payload: dict, test_mode: str) -> dict:
+def _test(workflow_name: str, test_payload: dict, test_mode: str,
+          user: str = "Administrator") -> dict:
     """Run the workflow and return a summary of what happened.
 
     Uses dry_run mode by default — nodes report what they *would* do
     without side effects. `test_mode='live'` runs for real (may create
     docs, send emails, spend AI tokens).
+
+    `user` is the identity to run under. We accept it explicitly rather
+    than reading frappe.session.user because inside a background worker
+    the session user can be Guest / unset.
     """
     from ..engine.runner import Runner
 
@@ -548,7 +694,7 @@ def _test(workflow_name: str, test_payload: dict, test_mode: str) -> dict:
         workflow_name=workflow_name,
         trigger_source=f"engineer_test:{test_mode}",
         payload=test_payload or {},
-        user=frappe.session.user,
+        user=user,
         dry_run=(test_mode == "dry_run"),
     )
     try:
