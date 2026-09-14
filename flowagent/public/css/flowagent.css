@@ -2029,3 +2029,170 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
     from { stroke-dashoffset: 0;   }
     to   { stroke-dashoffset: -18; }
 }
+
+/* =================================================================
+   FlowAgent Engineer — modal + progress views
+   ================================================================= */
+.fa-eng-fab {
+    /* Position it just left of the AI Build FAB */
+    right: 172px;
+    background: linear-gradient(135deg, #0EA5E9, #6366F1);
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.15) inset,
+        0 8px 24px rgba(14, 165, 233, 0.35),
+        0 2px 6px rgba(0, 0, 0, 0.12);
+}
+.fa-eng-fab:hover {
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+        0 12px 32px rgba(14, 165, 233, 0.45),
+        0 4px 8px rgba(0, 0, 0, 0.14);
+}
+.fa-eng-modal-card {
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    max-height: 82vh;
+}
+
+/* Progress view */
+.fa-eng-status {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--fa-border);
+    background: linear-gradient(90deg, rgba(14, 165, 233, 0.04), rgba(99, 102, 241, 0.03));
+}
+.fa-eng-spinner {
+    width: 22px;
+    height: 22px;
+    border: 2.5px solid rgba(14, 165, 233, 0.15);
+    border-top-color: #0EA5E9;
+    border-radius: 50%;
+    animation: fa-eng-spin 0.9s linear infinite;
+    flex-shrink: 0;
+}
+.fa-eng-spinner-done {
+    animation: none;
+    border-top-color: #10B981;
+    border-color: rgba(16, 185, 129, 0.2);
+}
+@keyframes fa-eng-spin { to { transform: rotate(360deg); } }
+
+.fa-eng-status-line {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fa-text);
+}
+.fa-eng-status-goal {
+    font-size: 12px;
+    color: var(--fa-text-sub);
+    margin-top: 2px;
+    max-width: 560px;
+    line-height: 1.4;
+}
+
+.fa-eng-iterations {
+    padding: 12px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    max-height: 260px;
+}
+.fa-eng-iter {
+    border: 1px solid var(--fa-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: white;
+    transition: box-shadow 0.15s;
+}
+.fa-eng-iter:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+.fa-eng-iter-ok    { border-left: 3px solid #10B981; }
+.fa-eng-iter-warn  { border-left: 3px solid #F59E0B; }
+.fa-eng-iter-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.fa-eng-iter-num {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--fa-text);
+}
+.fa-eng-iter-badge {
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.fa-eng-badge-ok   { background: #ECFDF5; color: #047857; }
+.fa-eng-badge-warn { background: #FEF3C7; color: #92400E; }
+.fa-eng-iter-body {
+    font-size: 12.5px;
+    color: var(--fa-text-sub);
+    line-height: 1.5;
+}
+.fa-eng-iter-meta { color: #9CA3AF; margin-bottom: 4px; }
+.fa-eng-iter-reasoning { color: var(--fa-text); }
+.fa-eng-iter-issue {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: #FEF3C7;
+    color: #92400E;
+    border-radius: 6px;
+    font-family: var(--fa-font-mono);
+    font-size: 11.5px;
+    line-height: 1.45;
+    max-height: 80px;
+    overflow-y: auto;
+}
+
+.fa-eng-logs {
+    max-height: 180px;
+    overflow-y: auto;
+    background: #F9FAFB;
+    border-top: 1px solid var(--fa-border);
+    padding: 8px 22px;
+    font-family: var(--fa-font-mono);
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--fa-text-sub);
+}
+.fa-eng-log { padding: 1px 0; }
+.fa-eng-log-ts { color: #9CA3AF; margin-right: 8px; }
+.fa-eng-log-warn { color: #92400E; }
+.fa-eng-log-error { color: #991B1B; }
+.fa-eng-log-success { color: #047857; font-weight: 500; }
+
+.fa-eng-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 22px;
+    border-top: 1px solid var(--fa-border);
+    background: #F9FAFB;
+}
+.fa-eng-cancel, .fa-eng-open, .fa-eng-reset {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--fa-border);
+    background: white;
+    color: var(--fa-text);
+    font-family: var(--fa-font);
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.fa-eng-cancel:hover { background: #FEF2F2; border-color: #FCA5A5; color: #991B1B; }
+.fa-eng-open { background: #6366F1; color: white; border-color: transparent; }
+.fa-eng-open:hover { background: #4F46E5; }
+.fa-eng-reset:hover { background: #F3F4F6; }

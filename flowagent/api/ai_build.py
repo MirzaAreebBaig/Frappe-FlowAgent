@@ -23,10 +23,12 @@ import frappe
 
 # Keep this list in sync with engine/nodes/__init__.py - all_node_types()
 VALID_NODE_TYPES = [
-    "trigger_doctype", "trigger_webhook", "trigger_schedule", "trigger_manual",
+    "trigger_doctype", "trigger_webhook", "trigger_schedule", "trigger_manual", "trigger_form",
     "ai_llm", "ai_extract", "ai_classify", "ai_sentiment", "ai_agent", "ai_vision",
     "logic_condition", "logic_loop", "logic_wait", "logic_parallel",
-    "frappe_create", "frappe_update", "frappe_fetch", "frappe_submit", "frappe_script",
+    "logic_subworkflow", "logic_approval",
+    "frappe_create", "frappe_update", "frappe_fetch", "frappe_query",
+    "frappe_submit", "frappe_script",
     "int_email", "int_whatsapp", "int_http", "int_slack", "int_sheets", "int_razorpay",
     "tf_mapper", "tf_jinja", "tf_code",
 ]
@@ -72,15 +74,19 @@ LAYOUT RULES:
 CONFIG GUIDANCE (cfg fields per node type):
 - trigger_doctype: doctype, event
 - trigger_schedule: cron
+- trigger_form: form_slug (informational)
 - ai_llm: prompt, output (variable name)
 - ai_extract: source (Jinja, defaults to last output), fields (comma list or JSON), output
 - ai_classify: text, categories (csv), output
 - ai_agent: task, allowed_doctypes (csv), can_write (bool), output
 - logic_condition: expr (e.g. "amount > 50000" or "{{{{extracted.score}}}} == 'hot'")
 - logic_wait: seconds
+- logic_subworkflow: target_workflow, payload (JSON, optional), output
+- logic_approval: approvers (csv emails), subject, message, timeout_hours, on_timeout (approve/reject/fail)
 - frappe_create: doctype, values (JSON string)
 - frappe_update: doctype, name, fields (JSON string)
 - frappe_fetch: doctype, filters (JSON), fields, limit, output
+- frappe_query: doctype, filters (dict or list of [field, op, value]), fields (csv - supports "count(name) as c", "sum(x) as t"), group_by, order_by, limit, output
 - int_email: to, subject, body
 - int_whatsapp: to, message
 - int_slack: channel, message
@@ -91,6 +97,7 @@ JINJA: Reference upstream node outputs via {{{{output_var}}}} or {{{{trigger.fie
 
 WIRING:
 - Branching nodes (logic_condition) must have TWO outgoing edges with fromPort="out-yes" and "out-no"
+- logic_approval has TWO outgoing edges with fromPort="out-approve" and "out-reject"
 - All other nodes have a single outgoing edge (no fromPort needed)
 - The trigger node must be node 0 / "n1"
 
