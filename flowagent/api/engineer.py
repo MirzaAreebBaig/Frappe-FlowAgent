@@ -148,9 +148,14 @@ def start(goal: str, max_iterations: int = 5, workflow_name: str | None = None,
         "started_by": frappe.session.user,
     })
 
+    # NOTE: We pass the id as `engineering_job_id`, NOT `job_id`.
+    # `job_id` is a reserved kwarg of `frappe.enqueue` itself (used as
+    # the RQ deduplication key) — it gets consumed by enqueue and never
+    # forwarded to the target function. Using our own distinct name
+    # ensures `_run_loop` actually receives the id in **kwargs.
     frappe.enqueue(
         "flowagent.api.engineer._run_loop",
-        job_id=job_id,
+        engineering_job_id=job_id,
         queue="long",
         timeout=1800,   # 30 min hard cap — a runaway loop shouldn't tie up a worker forever
         now=False,
@@ -224,8 +229,15 @@ def cancel(job_id: str) -> dict:
 # ---------------------------------------------------------------------------
 # The main loop (runs in background worker)
 # ---------------------------------------------------------------------------
-def _run_loop(job_id: str) -> None:
-    """The agent loop. Called via frappe.enqueue from start()."""
+def _run_loop(engineering_job_id: str) -> None:
+    """The agent loop. Called via frappe.enqueue from start().
+
+    Parameter is named `engineering_job_id` (not `job_id`) to avoid
+    colliding with frappe.enqueue's own reserved `job_id` kwarg.
+    See the caller in start() for the full explanation.
+    """
+    # Alias locally so the rest of the function reads naturally.
+    job_id = engineering_job_id
     job = _get_job(job_id)
     if not job:
         return
