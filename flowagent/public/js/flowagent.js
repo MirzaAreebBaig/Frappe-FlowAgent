@@ -1004,72 +1004,72 @@ window.flowagent_studio_html = function () {
             <!-- Engineer modal (hidden by default) -->
             <div class="fa-ai-modal fa-eng-modal" id="fa-eng-modal" style="display:none">
                 <div class="fa-ai-modal-backdrop" data-action="engineer-modal-close"></div>
-                <div class="fa-ai-modal-card fa-eng-modal-card">
-                    <div class="fa-ai-modal-head">
-                        <div>
-                            <div class="fa-ai-modal-title">
-                                <i class="ti ti-robot"></i> FlowAgent Engineer
-                            </div>
-                            <div class="fa-ai-modal-sub">Describe your goal. I'll design, build, test, and self-correct until it works — or tell you where I'm stuck.</div>
+                <div class="fa-ai-modal-box fa-eng-modal-box">
+                    <div class="fa-ai-modal-header">
+                        <div class="fa-ai-modal-mark fa-eng-modal-mark">
+                            <i class="ti ti-robot"></i>
                         </div>
-                        <button class="fa-ai-modal-x" data-action="engineer-modal-close">
+                        <div>
+                            <div class="fa-ai-modal-title">FlowAgent Engineer</div>
+                            <div class="fa-ai-modal-sub">Describe your goal — we'll design, build, test, and self-correct until it works.</div>
+                        </div>
+                        <button class="fa-ai-modal-close" data-action="engineer-modal-close" title="Close (Esc)">
                             <i class="ti ti-x"></i>
                         </button>
                     </div>
 
                     <!-- Setup view: shown before job starts -->
-                    <div id="fa-eng-setup">
-                        <div class="fa-ai-modal-body">
-                            <textarea class="fa-ai-modal-input" id="fa-eng-input" rows="6"
-                                placeholder="Example: When a Sales Invoice is submitted with grand total > 50000, use AI to draft a personalized thank-you email referencing the customer's recent orders, and send it to the customer's primary contact. If the total is > 100000, also create a ToDo for the sales team to schedule a follow-up call."></textarea>
-                        </div>
-                        <div class="fa-ai-modal-foot" style="gap:12px">
-                            <div style="display:flex;gap:16px;align-items:center;font-size:12px;color:#6B7280">
-                                <label style="display:flex;gap:6px;align-items:center;cursor:pointer">
-                                    Max iterations
-                                    <select id="fa-eng-max-iter" style="padding:4px 8px;border-radius:6px;border:1px solid #D1D5DB">
-                                        <option value="3">3</option>
-                                        <option value="5" selected>5</option>
-                                        <option value="7">7</option>
-                                        <option value="10">10</option>
-                                    </select>
-                                </label>
-                                <label style="display:flex;gap:6px;align-items:center;cursor:pointer">
-                                    Test mode
-                                    <select id="fa-eng-test-mode" style="padding:4px 8px;border-radius:6px;border:1px solid #D1D5DB">
-                                        <option value="dry_run" selected>Dry run (no side effects)</option>
-                                        <option value="live">Live (real emails / creates)</option>
-                                    </select>
-                                </label>
-                            </div>
-                            <button class="fa-ai-modal-build" data-action="engineer-start">
-                                <i class="ti ti-player-play"></i> Start engineering
-                            </button>
+                    <div class="fa-ai-modal-body" id="fa-eng-setup-body">
+                        <textarea id="fa-eng-input" rows="6"
+                            placeholder="Example: When a Sales Invoice is submitted with grand total > 50000, use AI to draft a personalized thank-you email referencing the customer's recent orders, and send it to the customer's primary contact. If the total is > 100000, also create a ToDo for the sales team to schedule a follow-up call."></textarea>
+                        <div class="fa-eng-setup-controls">
+                            <label class="fa-eng-control">
+                                <span>Max iterations</span>
+                                <select id="fa-eng-max-iter">
+                                    <option value="3">3</option>
+                                    <option value="5" selected>5</option>
+                                    <option value="7">7</option>
+                                    <option value="10">10</option>
+                                </select>
+                            </label>
+                            <label class="fa-eng-control">
+                                <span>Test mode</span>
+                                <select id="fa-eng-test-mode">
+                                    <option value="dry_run" selected>Dry run (safe)</option>
+                                    <option value="live">Live (real side effects)</option>
+                                </select>
+                            </label>
                         </div>
                     </div>
+                    <div class="fa-ai-modal-footer" id="fa-eng-setup-footer">
+                        <span class="fa-ai-modal-hint">The Engineer runs in the background — you can close this and reopen it any time.</span>
+                        <button class="fa-ai-modal-build" data-action="engineer-start">
+                            <i class="ti ti-player-play"></i> Start engineering
+                        </button>
+                    </div>
 
-                    <!-- Progress view: shown once job starts -->
-                    <div id="fa-eng-progress" style="display:none">
-                        <div class="fa-eng-status" id="fa-eng-status">
-                            <div class="fa-eng-spinner"></div>
-                            <div>
+                    <!-- Progress view: shown once job starts (initially hidden) -->
+                    <div class="fa-eng-progress-body" id="fa-eng-progress-body" style="display:none">
+                        <div class="fa-eng-status">
+                            <div class="fa-eng-spinner" id="fa-eng-spinner"></div>
+                            <div class="fa-eng-status-text">
                                 <div class="fa-eng-status-line" id="fa-eng-status-line">Starting…</div>
                                 <div class="fa-eng-status-goal" id="fa-eng-status-goal"></div>
                             </div>
                         </div>
                         <div class="fa-eng-iterations" id="fa-eng-iterations"></div>
                         <div class="fa-eng-logs" id="fa-eng-logs"></div>
-                        <div class="fa-eng-foot">
-                            <button class="fa-eng-cancel" data-action="engineer-cancel">
-                                <i class="ti ti-player-stop"></i> Cancel
-                            </button>
-                            <button class="fa-eng-open" data-action="engineer-open-workflow" style="display:none">
-                                <i class="ti ti-external-link"></i> Open workflow in canvas
-                            </button>
-                            <button class="fa-eng-reset" data-action="engineer-reset" style="display:none">
-                                <i class="ti ti-arrow-back"></i> New goal
-                            </button>
-                        </div>
+                    </div>
+                    <div class="fa-ai-modal-footer" id="fa-eng-progress-footer" style="display:none">
+                        <button class="fa-eng-btn fa-eng-btn-ghost" data-action="engineer-cancel" id="fa-eng-cancel-btn">
+                            <i class="ti ti-player-stop"></i> Cancel
+                        </button>
+                        <button class="fa-eng-btn fa-eng-btn-ghost" data-action="engineer-reset" id="fa-eng-reset-btn" style="display:none">
+                            <i class="ti ti-arrow-back"></i> New goal
+                        </button>
+                        <button class="fa-ai-modal-build" data-action="engineer-open-workflow" id="fa-eng-open-btn" style="display:none">
+                            <i class="ti ti-external-link"></i> Open workflow in canvas
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2150,16 +2150,18 @@ function resetEngineerModal() {
     engineerState.lastIterationCount = 0;
     engineerState.lastLogCount = 0;
     engineerState.workflowName = null;
-    document.getElementById('fa-eng-setup').style.display = '';
-    document.getElementById('fa-eng-progress').style.display = 'none';
+    document.getElementById('fa-eng-setup-body').style.display = '';
+    document.getElementById('fa-eng-setup-footer').style.display = '';
+    document.getElementById('fa-eng-progress-body').style.display = 'none';
+    document.getElementById('fa-eng-progress-footer').style.display = 'none';
     document.getElementById('fa-eng-iterations').innerHTML = '';
     document.getElementById('fa-eng-logs').innerHTML = '';
-    const openBtn = document.querySelector('[data-action="engineer-open-workflow"]');
-    const resetBtn = document.querySelector('[data-action="engineer-reset"]');
-    if (openBtn) openBtn.style.display = 'none';
-    if (resetBtn) resetBtn.style.display = 'none';
-    const cancelBtn = document.querySelector('[data-action="engineer-cancel"]');
-    if (cancelBtn) cancelBtn.style.display = '';
+    document.getElementById('fa-eng-open-btn').style.display = 'none';
+    document.getElementById('fa-eng-reset-btn').style.display = 'none';
+    document.getElementById('fa-eng-cancel-btn').style.display = '';
+    // Reset spinner state
+    const spinner = document.getElementById('fa-eng-spinner');
+    if (spinner) spinner.classList.remove('fa-eng-spinner-done');
 }
 
 function startEngineerJob() {
@@ -2183,12 +2185,16 @@ function startEngineerJob() {
             engineerState.lastIterationCount = 0;
             engineerState.lastLogCount = 0;
             // Switch to progress view
-            document.getElementById('fa-eng-setup').style.display = 'none';
-            document.getElementById('fa-eng-progress').style.display = '';
+            document.getElementById('fa-eng-setup-body').style.display = 'none';
+            document.getElementById('fa-eng-setup-footer').style.display = 'none';
+            document.getElementById('fa-eng-progress-body').style.display = '';
+            document.getElementById('fa-eng-progress-footer').style.display = '';
             document.getElementById('fa-eng-status-goal').textContent = goal.slice(0, 200);
             document.getElementById('fa-eng-status-line').textContent = 'Queued…';
             document.getElementById('fa-eng-iterations').innerHTML = '';
             document.getElementById('fa-eng-logs').innerHTML = '';
+            const spinner = document.getElementById('fa-eng-spinner');
+            if (spinner) spinner.classList.remove('fa-eng-spinner-done');
             // Begin polling
             engineerState.pollTimer = setInterval(pollEngineerStatus, 1200);
         },
@@ -2225,7 +2231,7 @@ function pollEngineerStatus() {
 function renderEngineerStatus(job) {
     // Status line
     const statusLine = document.getElementById('fa-eng-status-line');
-    const spinner = document.querySelector('#fa-eng-status .fa-eng-spinner');
+    const spinner = document.getElementById('fa-eng-spinner');
     statusLine.textContent = job.status || 'running';
 
     // Iterations — append the new ones
@@ -2242,7 +2248,7 @@ function renderEngineerStatus(job) {
         job.logs.forEach(l => {
             const line = document.createElement('div');
             line.className = 'fa-eng-log fa-eng-log-' + (l.level || 'info');
-            line.innerHTML = `<span class="fa-eng-log-ts">${frappe.utils.escape_html(l.ts.split(' ')[1] || '')}</span> ${frappe.utils.escape_html(l.message)}`;
+            line.innerHTML = `<span class="fa-eng-log-ts">${frappe.utils.escape_html((l.ts || '').split(' ')[1] || '')}</span> ${frappe.utils.escape_html(l.message)}`;
             logBox.appendChild(line);
         });
         engineerState.lastLogCount = job.total_logs;
@@ -2258,9 +2264,9 @@ function renderEngineerStatus(job) {
         if (spinner) spinner.classList.add('fa-eng-spinner-done');
         engineerState.workflowName = job.workflow_name;
 
-        const cancelBtn = document.querySelector('[data-action="engineer-cancel"]');
-        const openBtn = document.querySelector('[data-action="engineer-open-workflow"]');
-        const resetBtn = document.querySelector('[data-action="engineer-reset"]');
+        const cancelBtn = document.getElementById('fa-eng-cancel-btn');
+        const openBtn   = document.getElementById('fa-eng-open-btn');
+        const resetBtn  = document.getElementById('fa-eng-reset-btn');
         if (cancelBtn) cancelBtn.style.display = 'none';
         if (openBtn && job.workflow_name) openBtn.style.display = '';
         if (resetBtn) resetBtn.style.display = '';

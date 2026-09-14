@@ -2031,10 +2031,15 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
 }
 
 /* =================================================================
-   FlowAgent Engineer — modal + progress views
+   FlowAgent Engineer — modal chrome overrides + progress views
+   The modal reuses .fa-ai-modal-box structure so all the container
+   styling (background, border, shadow, animation) inherits for free.
+   These rules only override the accent colour and add the progress
+   view chrome that the AI modal doesn't need.
    ================================================================= */
+
+/* FAB button — sits left of the AI Build FAB */
 .fa-eng-fab {
-    /* Position it just left of the AI Build FAB */
     right: 172px;
     background: linear-gradient(135deg, #0EA5E9, #6366F1);
     box-shadow:
@@ -2048,21 +2053,62 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
         0 12px 32px rgba(14, 165, 233, 0.45),
         0 4px 8px rgba(0, 0, 0, 0.14);
 }
-.fa-eng-modal-card {
-    max-width: 720px;
+
+/* Modal box — slightly wider than AI Build to fit iteration cards */
+.fa-eng-modal-box {
+    width: min(720px, calc(100vw - 32px));
+    max-height: 82vh;
     display: flex;
     flex-direction: column;
-    max-height: 82vh;
+}
+/* Override the mark colour from AI Build purple to Engineer cyan */
+.fa-eng-modal-mark {
+    background: linear-gradient(135deg, #0EA5E9, #6366F1);
 }
 
-/* Progress view */
+/* Setup view — inherit .fa-ai-modal-body layout, add controls row */
+.fa-eng-setup-controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--fa-text-dim);
+}
+.fa-eng-control {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    cursor: pointer;
+}
+.fa-eng-control select {
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--fa-border);
+    background: var(--fa-surface);
+    color: var(--fa-text);
+    font-family: var(--fa-font);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* Progress view — scrollable middle region between header and footer */
+.fa-eng-progress-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;  /* allow children to shrink for overflow scrolling */
+    overflow: hidden;
+}
+
 .fa-eng-status {
     display: flex;
     gap: 14px;
     align-items: center;
-    padding: 18px 22px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--fa-border);
     background: linear-gradient(90deg, rgba(14, 165, 233, 0.04), rgba(99, 102, 241, 0.03));
+    flex-shrink: 0;
 }
 .fa-eng-spinner {
     width: 22px;
@@ -2080,6 +2126,7 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
 }
 @keyframes fa-eng-spin { to { transform: rotate(360deg); } }
 
+.fa-eng-status-text { min-width: 0; flex: 1; }
 .fa-eng-status-line {
     font-size: 14px;
     font-weight: 600;
@@ -2087,25 +2134,31 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
 }
 .fa-eng-status-goal {
     font-size: 12px;
-    color: var(--fa-text-sub);
+    color: var(--fa-text-dim);
     margin-top: 2px;
-    max-width: 560px;
     line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
 }
 
 .fa-eng-iterations {
-    padding: 12px 22px;
+    padding: 12px 20px;
     display: flex;
     flex-direction: column;
     gap: 10px;
     overflow-y: auto;
-    max-height: 260px;
+    flex: 1 1 auto;
+    min-height: 100px;
+    max-height: 300px;
 }
 .fa-eng-iter {
     border: 1px solid var(--fa-border);
     border-radius: 10px;
     padding: 12px 14px;
-    background: white;
+    background: var(--fa-surface);
     transition: box-shadow 0.15s;
 }
 .fa-eng-iter:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
@@ -2134,10 +2187,10 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
 .fa-eng-badge-warn { background: #FEF3C7; color: #92400E; }
 .fa-eng-iter-body {
     font-size: 12.5px;
-    color: var(--fa-text-sub);
+    color: var(--fa-text-dim);
     line-height: 1.5;
 }
-.fa-eng-iter-meta { color: #9CA3AF; margin-bottom: 4px; }
+.fa-eng-iter-meta { color: #9CA3AF; margin-bottom: 4px; font-size: 11.5px; }
 .fa-eng-iter-reasoning { color: var(--fa-text); }
 .fa-eng-iter-issue {
     margin-top: 6px;
@@ -2153,15 +2206,16 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
 }
 
 .fa-eng-logs {
-    max-height: 180px;
+    max-height: 160px;
     overflow-y: auto;
-    background: #F9FAFB;
+    background: var(--fa-surface-2);
     border-top: 1px solid var(--fa-border);
-    padding: 8px 22px;
+    padding: 8px 20px;
     font-family: var(--fa-font-mono);
     font-size: 11px;
     line-height: 1.55;
-    color: var(--fa-text-sub);
+    color: var(--fa-text-dim);
+    flex-shrink: 0;
 }
 .fa-eng-log { padding: 1px 0; }
 .fa-eng-log-ts { color: #9CA3AF; margin-right: 8px; }
@@ -2169,30 +2223,32 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
 .fa-eng-log-error { color: #991B1B; }
 .fa-eng-log-success { color: #047857; font-weight: 500; }
 
-.fa-eng-foot {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 14px 22px;
-    border-top: 1px solid var(--fa-border);
-    background: #F9FAFB;
-}
-.fa-eng-cancel, .fa-eng-open, .fa-eng-reset {
+/* Ghost buttons for cancel / reset in the footer */
+.fa-eng-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 8px 14px;
     border-radius: 8px;
     border: 1px solid var(--fa-border);
-    background: white;
+    background: var(--fa-surface);
     color: var(--fa-text);
     font-family: var(--fa-font);
     font-size: 12.5px;
     font-weight: 500;
     cursor: pointer;
-    transition: background 0.12s;
+    transition: background 0.12s, border-color 0.12s;
 }
-.fa-eng-cancel:hover { background: #FEF2F2; border-color: #FCA5A5; color: #991B1B; }
-.fa-eng-open { background: #6366F1; color: white; border-color: transparent; }
-.fa-eng-open:hover { background: #4F46E5; }
-.fa-eng-reset:hover { background: #F3F4F6; }
+.fa-eng-btn-ghost:hover { background: var(--fa-surface-2); }
+#fa-eng-cancel-btn:hover {
+    background: #FEF2F2;
+    border-color: #FCA5A5;
+    color: #991B1B;
+}
+
+/* Progress footer: align buttons to the right instead of space-between */
+#fa-eng-progress-footer {
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+}
