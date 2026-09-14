@@ -2152,7 +2152,7 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
     overflow-y: auto;
     flex: 1 1 auto;
     min-height: 100px;
-    max-height: 300px;
+    max-height: 420px;
 }
 .fa-eng-iter {
     border: 1px solid var(--fa-border);
@@ -2268,4 +2268,119 @@ body.fa-test-mode-active .fa-tb-btn.fa-run:hover {
     font-weight: 600;
     letter-spacing: 0.02em;
     vertical-align: middle;
+}
+
+/* Iteration card — phase timeline, step-by-step results, sections */
+.fa-eng-iter-phases {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 6px 0 10px 0;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--fa-border);
+}
+.fa-eng-iter-phase {
+    display: inline-flex;
+    gap: 5px;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--fa-surface-2);
+    font-size: 10.5px;
+}
+.fa-eng-iter-phase-name { font-weight: 600; color: var(--fa-text); }
+.fa-eng-iter-phase-ms   { color: var(--fa-text-mute); font-family: var(--fa-font-mono); }
+.fa-eng-iter-phase-arrow {
+    color: var(--fa-text-mute);
+    font-size: 12px;
+    margin: 0 1px;
+}
+
+.fa-eng-iter-section {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--fa-text);
+    line-height: 1.5;
+}
+.fa-eng-iter-label {
+    font-weight: 600;
+    color: var(--fa-text-dim);
+    margin-right: 4px;
+}
+
+.fa-eng-iter-steps {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: var(--fa-surface-2);
+    border-radius: 6px;
+    font-size: 11.5px;
+}
+.fa-eng-iter-steps-title {
+    font-weight: 600;
+    color: var(--fa-text-dim);
+    margin-bottom: 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.fa-eng-iter-step {
+    display: grid;
+    grid-template-columns: 18px 24px 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+    padding: 3px 0;
+    border-top: 1px solid var(--fa-border);
+    font-family: var(--fa-font-mono);
+}
+.fa-eng-iter-step:first-child { border-top: none; }
+.fa-eng-iter-step-icon { text-align: center; font-weight: 700; }
+.fa-eng-iter-step-ok  .fa-eng-iter-step-icon { color: #10B981; }
+.fa-eng-iter-step-err .fa-eng-iter-step-icon { color: #EF4444; }
+.fa-eng-iter-step-skip .fa-eng-iter-step-icon { color: #9CA3AF; }
+.fa-eng-iter-step-idx  { color: var(--fa-text-mute); }
+.fa-eng-iter-step-label {
+    color: var(--fa-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fa-eng-iter-step-type {
+    color: var(--fa-text-mute);
+    font-size: 10.5px;
+    padding: 1px 6px;
+    background: var(--fa-surface);
+    border-radius: 4px;
+}
+.fa-eng-iter-step-ms   { color: var(--fa-text-mute); font-size: 10.5px; }
+.fa-eng-iter-step-err {
+    grid-column: 1 / -1;
+    margin-top: 2px;
+    padding: 4px 8px;
+    background: #FEF2F2;
+    color: #991B1B;
+    border-radius: 4px;
+    font-size: 10.5px;
+    line-height: 1.4;
+}
+.fa-eng-iter-runerr {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #FEF2F2;
+    color: #991B1B;
+    border-radius: 6px;
+    font-family: var(--fa-font-mono);
+    font-size: 11px;
+    line-height: 1.45;
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+/* Phase log lines get a subtle divider style */
+.fa-eng-log-phase {
+    color: var(--fa-text);
+    font-weight: 600;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px dashed var(--fa-border);
 }
