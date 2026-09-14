@@ -85,18 +85,52 @@ def _append_iteration(job_id: str, iteration: dict) -> None:
 
 
 def _append_log(job_id: str, message: str, level: str = "info") -> None:
-    """Push a log line onto the job's log tape."""
-    job = _get_job(job_id) or {}
-    job.setdefault("logs", []).append({
-        "ts": str(now_datetime()),
-        "level": level,
-        "message": message,
-    })
-    # Cap logs to last 500 lines so the payload stays reasonable
-    if len(job["logs"]) > 500:
-        job["logs"] = job["logs"][-500:]
-    job["updated_at"] = str(now_datetime())
-    _save_job(job_id, job)
+    """Push a log line onto the job's log tape.
+
+    Wrapped defensively — if cache writes fail, the whole engineer
+    loop must not die because of a log line. On failure, mirror to
+    Frappe's Error Log so at least the user has a diagnostic trail
+    they can see in the desk.
+    """
+    try:
+        job = _get_job(job_id) or {}
+        job.setdefault("logs", []).append({
+            "ts": str(now_datetime()),
+            "level": level,
+            "message": message,
+        })
+        # Cap logs to last 500 lines so the payload stays reasonable
+        if len(job["logs"]) > 500:
+            job["logs"] = job["logs"][-500:]
+        job["updated_at"] = str(now_datetime())
+        _save_job(job_id, job)
+    except Exception as e:
+        # A broken log line MUST NOT kill the loop. Log to Frappe's
+        # Error Log so it's visible in the desk if the modal doesn't
+        # show it.
+        try:
+            frappe.log_error(
+                title=f"FlowAgent Engineer: log write failed for {job_id}",
+                message=f"level={level}\nmsg={message}\n\n{type(e).__name__}: {e}",
+            )
+        except Exception:
+            pass  # last resort — swallow
+
+
+def _mirror_to_error_log(job_id: str, title: str, detail: str) -> None:
+    """Also write a copy to Frappe's Error Log doctype.
+
+    So when the cached job state gets weird or the UI polling loses
+    track, the user always has a durable record in Error Log > List
+    filtered by 'FlowAgent Engineer'.
+    """
+    try:
+        frappe.log_error(
+            title=f"FlowAgent Engineer: {title} [{job_id[:8]}]",
+            message=detail[:4000],
+        )
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -291,9 +325,20 @@ def _run_loop(engineering_job_id: str) -> None:
                     prior_error=prior_error,
                     prior_run_summary=prior_run_summary,
                     workflow_name_hint=workflow_name,
+                    job_id=job_id,
                 )
             except Exception as e:
-                _append_log(job_id, f"❌ Design failed: {type(e).__name__}: {e}", "error")
+                # Mirror to Error Log so the failure is visible in the
+                # desk even if the cached job state loses the log line.
+                tb = traceback.format_exc()
+                _mirror_to_error_log(
+                    job_id,
+                    f"Design failed on iteration {iter_num}",
+                    f"{type(e).__name__}: {e}\n\n{tb}",
+                )
+                _append_log(job_id,
+                            f"❌ Design failed: {type(e).__name__}: {e}",
+                            "error")
                 _finalize(job_id, "failed", f"Design error: {e}", workflow_name)
                 return
             design_ms = int((time.monotonic() - t0) * 1000)
@@ -491,10 +536,13 @@ def _run_loop(engineering_job_id: str) -> None:
         )
 
     except Exception as e:
+        tb = traceback.format_exc()
         _append_log(job_id, f"💥 Fatal error: {type(e).__name__}: {e}", "error")
-        frappe.log_error(
-            title=f"FlowAgent Engineer: fatal error in job {job_id}",
-            message=f"{type(e).__name__}: {e}\n\n{traceback.format_exc()}",
+        _mirror_to_error_log(
+            job_id,
+            "FATAL error in _run_loop",
+            f"goal: {job.get('goal', '')[:200]}\n\n"
+            f"{type(e).__name__}: {e}\n\n{tb}",
         )
         _finalize(job_id, "failed", str(e))
 
@@ -518,7 +566,7 @@ def _finalize(job_id: str, final_status: str, reason: str,
 # ---------------------------------------------------------------------------
 def _design(goal: str, iteration: int, prior_workflow: dict | None,
             prior_error: str | None, prior_run_summary: dict | None,
-            workflow_name_hint: str | None) -> dict:
+            workflow_name_hint: str | None, job_id: str | None = None) -> dict:
     """Ask Claude to design (or fix) the workflow.
 
     Returns a dict shaped like:
@@ -531,6 +579,10 @@ def _design(goal: str, iteration: int, prior_workflow: dict | None,
           "test_payload": {...},
           "reasoning": "..."
         }
+
+    `job_id` is optional but recommended — when set, we emit heartbeat
+    logs during the Claude call so the user knows the API round-trip
+    is in flight (not that the loop is stuck).
     """
     from .ai_build import SYSTEM_PROMPT, VALID_NODE_TYPES, _strip_fences
     from ..flowagent_core.doctype.flowagent_settings.flowagent_settings import (
@@ -539,11 +591,21 @@ def _design(goal: str, iteration: int, prior_workflow: dict | None,
     try:
         from anthropic import Anthropic
     except ImportError:
-        frappe.throw("Install the anthropic package to use the Engineer")
+        raise RuntimeError(
+            "The `anthropic` Python package is not installed on this bench. "
+            "Run: bench pip install anthropic  — then bench restart."
+        )
 
     key = get_anthropic_key()
     if not key:
-        frappe.throw("Set the Anthropic API key in FlowAgent Settings")
+        raise RuntimeError(
+            "Anthropic API key is not set. Open FlowAgent Settings, "
+            "paste your key, save, then run the Engineer again."
+        )
+
+    model = get_default_model() or "claude-sonnet-4-5"
+    if job_id:
+        _append_log(job_id, f"     • Model: {model}", "info")
 
     # Compose the user message. First iteration = plain goal. Later
     # iterations include what was tried and what went wrong.
@@ -611,16 +673,73 @@ def _design(goal: str, iteration: int, prior_workflow: dict | None,
         "design choices). All other rules from the base prompt apply."
     )
 
-    client = Anthropic(api_key=key)
-    response = client.messages.create(
-        model=get_default_model(),
-        max_tokens=6000,
-        system=engineer_system,
-        messages=[{"role": "user", "content": user_msg}],
-    )
+    # Anthropic client with an EXPLICIT timeout. Without this, a hung
+    # network connection would block the whole worker until Frappe's
+    # 30-min RQ timeout fires — during which the modal shows the
+    # design phase forever with no feedback.
+    #
+    # 180 seconds is plenty for even a slow, big-context response;
+    # anything longer than that is almost certainly a stuck connection
+    # and we're better off failing loudly.
+    client = Anthropic(api_key=key, timeout=180.0)
+
+    if job_id:
+        _append_log(
+            job_id,
+            f"     • Calling Anthropic API "
+            f"(prompt: {len(user_msg)} chars, max_tokens: 6000)…",
+            "info",
+        )
+
+    api_t0 = time.monotonic()
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=6000,
+            system=engineer_system,
+            messages=[{"role": "user", "content": user_msg}],
+        )
+    except Exception as e:
+        # Distinguish common failure modes for a clearer log.
+        api_ms = int((time.monotonic() - api_t0) * 1000)
+        cls = type(e).__name__
+        if "timeout" in str(e).lower() or "Timeout" in cls:
+            raise RuntimeError(
+                f"Anthropic API timed out after {api_ms}ms. "
+                "Check the bench's outbound network access to "
+                "api.anthropic.com — a firewall / proxy is the usual cause."
+            ) from e
+        if "401" in str(e) or "authentication" in str(e).lower():
+            raise RuntimeError(
+                "Anthropic authentication failed. The API key in "
+                "FlowAgent Settings is invalid or revoked."
+            ) from e
+        if "404" in str(e) and "model" in str(e).lower():
+            raise RuntimeError(
+                f"Anthropic doesn't recognise model '{model}'. Update the "
+                "default model in FlowAgent Settings to a current one "
+                "(e.g. claude-sonnet-4-5)."
+            ) from e
+        raise RuntimeError(f"Anthropic API call failed after {api_ms}ms: {cls}: {e}") from e
+
+    api_ms = int((time.monotonic() - api_t0) * 1000)
     raw = "".join(
         b.text for b in response.content if getattr(b, "type", None) == "text"
     ).strip()
+
+    if job_id:
+        _append_log(
+            job_id,
+            f"     • API responded in {api_ms}ms with {len(raw)} chars",
+            "info",
+        )
+
+    if not raw:
+        raise RuntimeError(
+            "Anthropic returned an empty response. This usually means "
+            "the model hit its output cap or safety filter. Try a "
+            "shorter / simpler goal, or change the default model."
+        )
 
     cleaned = _strip_fences(raw)
     try:
