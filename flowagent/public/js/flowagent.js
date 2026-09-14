@@ -185,6 +185,22 @@ const NODE_DEFS = {
             { k: 'output', l: 'Output variable', t: 'text', v: 'rows' },
         ],
     },
+    frappe_query: {
+        label: 'Query DB', icon: 'ti-filter-search', color: '#E6F1FB', iconColor: '#38BDF8',
+        category: 'frappe', fields: [
+            { k: 'doctype', l: 'DocType', t: 'link', options: 'DocType', v: 'Sales Invoice' },
+            { k: 'filters', l: 'Filters (JSON — supports operators)', t: 'textarea',
+              v: '[["grand_total", ">", 10000], ["status", "=", "Paid"]]',
+              help: 'Dict for equality, list of [field, op, value] for operators. Ops: =, !=, >, >=, <, <=, like, not like, in, not in, between, is, is not.' },
+            { k: 'fields', l: 'Fields (csv — supports aggregates)', t: 'text',
+              v: 'customer, count(name) as invoices, sum(grand_total) as total',
+              help: 'Use aggregates with GROUP BY: count(name), sum(x), avg(x), min(x), max(x).' },
+            { k: 'group_by', l: 'Group by (optional)', t: 'text', v: 'customer' },
+            { k: 'order_by', l: 'Order by', t: 'text', v: 'total desc' },
+            { k: 'limit', l: 'Limit', t: 'text', v: '20' },
+            { k: 'output', l: 'Output variable', t: 'text', v: 'rows' },
+        ],
+    },
     frappe_submit: {
         label: 'Submit Doc', icon: 'ti-file-check', color: '#E6F1FB', iconColor: '#38BDF8',
         category: 'frappe', fields: [
@@ -288,7 +304,7 @@ const SIDEBAR_GROUPS = [
     { label: 'Triggers',         types: ['trigger_doctype', 'trigger_webhook', 'trigger_schedule', 'trigger_manual', 'trigger_form'] },
     { label: 'AI Agents',        types: ['ai_llm', 'ai_extract', 'ai_classify', 'ai_sentiment', 'ai_agent', 'ai_vision'] },
     { label: 'Logic',            types: ['logic_condition', 'logic_loop', 'logic_wait', 'logic_parallel', 'logic_subworkflow', 'logic_approval'] },
-    { label: 'Frappe Actions',   types: ['frappe_create', 'frappe_update', 'frappe_fetch', 'frappe_submit', 'frappe_script'] },
+    { label: 'Frappe Actions',   types: ['frappe_create', 'frappe_update', 'frappe_fetch', 'frappe_query', 'frappe_submit', 'frappe_script'] },
     { label: 'Integrations',     types: ['int_email', 'int_whatsapp', 'int_http', 'int_slack', 'int_sheets', 'int_razorpay'] },
     { label: 'Transform',        types: ['tf_mapper', 'tf_jinja', 'tf_code'] },
 ];
@@ -921,6 +937,13 @@ window.flowagent_studio_html = function () {
                 <span class="fa-ai-fab-kbd">⌘K</span>
             </button>
 
+            <!-- Floating Engineer button (agentic build-test-fix loop) -->
+            <button class="fa-ai-fab fa-eng-fab" id="fa-eng-fab" data-action="engineer-modal"
+                    title="FlowAgent Engineer — describe your goal, we build & self-correct until it works">
+                <i class="ti ti-robot"></i>
+                <span class="fa-ai-fab-label">Engineer</span>
+            </button>
+
             <!-- AI Build modal (hidden by default) -->
             <div class="fa-ai-modal" id="fa-ai-modal" style="display:none">
                 <div class="fa-ai-modal-backdrop" data-action="ai-modal-close"></div>
@@ -974,6 +997,79 @@ window.flowagent_studio_html = function () {
                         <button class="fa-ai-modal-build" data-action="ai-modal-build">
                             <i class="ti ti-sparkles"></i> <span id="fa-ai-modal-build-label">Build workflow</span>
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Engineer modal (hidden by default) -->
+            <div class="fa-ai-modal fa-eng-modal" id="fa-eng-modal" style="display:none">
+                <div class="fa-ai-modal-backdrop" data-action="engineer-modal-close"></div>
+                <div class="fa-ai-modal-card fa-eng-modal-card">
+                    <div class="fa-ai-modal-head">
+                        <div>
+                            <div class="fa-ai-modal-title">
+                                <i class="ti ti-robot"></i> FlowAgent Engineer
+                            </div>
+                            <div class="fa-ai-modal-sub">Describe your goal. I'll design, build, test, and self-correct until it works — or tell you where I'm stuck.</div>
+                        </div>
+                        <button class="fa-ai-modal-x" data-action="engineer-modal-close">
+                            <i class="ti ti-x"></i>
+                        </button>
+                    </div>
+
+                    <!-- Setup view: shown before job starts -->
+                    <div id="fa-eng-setup">
+                        <div class="fa-ai-modal-body">
+                            <textarea class="fa-ai-modal-input" id="fa-eng-input" rows="6"
+                                placeholder="Example: When a Sales Invoice is submitted with grand total > 50000, use AI to draft a personalized thank-you email referencing the customer's recent orders, and send it to the customer's primary contact. If the total is > 100000, also create a ToDo for the sales team to schedule a follow-up call."></textarea>
+                        </div>
+                        <div class="fa-ai-modal-foot" style="gap:12px">
+                            <div style="display:flex;gap:16px;align-items:center;font-size:12px;color:#6B7280">
+                                <label style="display:flex;gap:6px;align-items:center;cursor:pointer">
+                                    Max iterations
+                                    <select id="fa-eng-max-iter" style="padding:4px 8px;border-radius:6px;border:1px solid #D1D5DB">
+                                        <option value="3">3</option>
+                                        <option value="5" selected>5</option>
+                                        <option value="7">7</option>
+                                        <option value="10">10</option>
+                                    </select>
+                                </label>
+                                <label style="display:flex;gap:6px;align-items:center;cursor:pointer">
+                                    Test mode
+                                    <select id="fa-eng-test-mode" style="padding:4px 8px;border-radius:6px;border:1px solid #D1D5DB">
+                                        <option value="dry_run" selected>Dry run (no side effects)</option>
+                                        <option value="live">Live (real emails / creates)</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <button class="fa-ai-modal-build" data-action="engineer-start">
+                                <i class="ti ti-player-play"></i> Start engineering
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Progress view: shown once job starts -->
+                    <div id="fa-eng-progress" style="display:none">
+                        <div class="fa-eng-status" id="fa-eng-status">
+                            <div class="fa-eng-spinner"></div>
+                            <div>
+                                <div class="fa-eng-status-line" id="fa-eng-status-line">Starting…</div>
+                                <div class="fa-eng-status-goal" id="fa-eng-status-goal"></div>
+                            </div>
+                        </div>
+                        <div class="fa-eng-iterations" id="fa-eng-iterations"></div>
+                        <div class="fa-eng-logs" id="fa-eng-logs"></div>
+                        <div class="fa-eng-foot">
+                            <button class="fa-eng-cancel" data-action="engineer-cancel">
+                                <i class="ti ti-player-stop"></i> Cancel
+                            </button>
+                            <button class="fa-eng-open" data-action="engineer-open-workflow" style="display:none">
+                                <i class="ti ti-external-link"></i> Open workflow in canvas
+                            </button>
+                            <button class="fa-eng-reset" data-action="engineer-reset" style="display:none">
+                                <i class="ti ti-arrow-back"></i> New goal
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1571,6 +1667,12 @@ function handleAction(name, e) {
         case 'ai-modal':        return openAIBuildModal();
         case 'ai-modal-close':  return closeAIBuildModal();
         case 'ai-modal-build':  return aiModalBuild();
+        case 'engineer-modal':          return openEngineerModal();
+        case 'engineer-modal-close':    return closeEngineerModal();
+        case 'engineer-start':          return startEngineerJob();
+        case 'engineer-cancel':         return cancelEngineerJob();
+        case 'engineer-open-workflow':  return openEngineeredWorkflow();
+        case 'engineer-reset':          return resetEngineerModal();
         case 'replay-run':      return replayLastRun();
         case 'versions':        return openVersionsDialog();
         case 'undo':              return undo();
@@ -2010,6 +2112,212 @@ function aiModalBuild() {
             }, 8);
         },
     });
+}
+
+// ============================================================
+// FlowAgent Engineer — agentic build-test-fix loop
+// ============================================================
+const engineerState = {
+    jobId: null,
+    pollTimer: null,
+    lastIterationCount: 0,
+    lastLogCount: 0,
+    workflowName: null,
+};
+
+function openEngineerModal() {
+    document.getElementById('fa-eng-modal').style.display = 'flex';
+    setTimeout(() => {
+        const ta = document.getElementById('fa-eng-input');
+        if (ta) ta.focus();
+    }, 40);
+}
+
+function closeEngineerModal() {
+    document.getElementById('fa-eng-modal').style.display = 'none';
+    // If a job is running, we DON'T cancel it — it continues in the background.
+    // The user can reopen the modal to see status.
+}
+
+function resetEngineerModal() {
+    // Return to setup view for a new goal. Clears local job state, but
+    // any running background job continues on the server.
+    if (engineerState.pollTimer) {
+        clearInterval(engineerState.pollTimer);
+        engineerState.pollTimer = null;
+    }
+    engineerState.jobId = null;
+    engineerState.lastIterationCount = 0;
+    engineerState.lastLogCount = 0;
+    engineerState.workflowName = null;
+    document.getElementById('fa-eng-setup').style.display = '';
+    document.getElementById('fa-eng-progress').style.display = 'none';
+    document.getElementById('fa-eng-iterations').innerHTML = '';
+    document.getElementById('fa-eng-logs').innerHTML = '';
+    const openBtn = document.querySelector('[data-action="engineer-open-workflow"]');
+    const resetBtn = document.querySelector('[data-action="engineer-reset"]');
+    if (openBtn) openBtn.style.display = 'none';
+    if (resetBtn) resetBtn.style.display = 'none';
+    const cancelBtn = document.querySelector('[data-action="engineer-cancel"]');
+    if (cancelBtn) cancelBtn.style.display = '';
+}
+
+function startEngineerJob() {
+    const goal = (document.getElementById('fa-eng-input').value || '').trim();
+    if (!goal) {
+        frappe.show_alert({ message: 'Describe the goal first.', indicator: 'orange' }, 4);
+        return;
+    }
+    const maxIter = parseInt(document.getElementById('fa-eng-max-iter').value || '5', 10);
+    const testMode = document.getElementById('fa-eng-test-mode').value || 'dry_run';
+
+    frappe.call({
+        method: 'flowagent.api.engineer.start',
+        args: { goal, max_iterations: maxIter, test_mode: testMode },
+        callback: r => {
+            if (!r.message || !r.message.job_id) {
+                frappe.show_alert({ message: 'Failed to start engineer.', indicator: 'red' }, 5);
+                return;
+            }
+            engineerState.jobId = r.message.job_id;
+            engineerState.lastIterationCount = 0;
+            engineerState.lastLogCount = 0;
+            // Switch to progress view
+            document.getElementById('fa-eng-setup').style.display = 'none';
+            document.getElementById('fa-eng-progress').style.display = '';
+            document.getElementById('fa-eng-status-goal').textContent = goal.slice(0, 200);
+            document.getElementById('fa-eng-status-line').textContent = 'Queued…';
+            document.getElementById('fa-eng-iterations').innerHTML = '';
+            document.getElementById('fa-eng-logs').innerHTML = '';
+            // Begin polling
+            engineerState.pollTimer = setInterval(pollEngineerStatus, 1200);
+        },
+        error: err => {
+            frappe.show_alert({
+                message: 'Engineer failed to start: ' + ((err && err.message) || 'unknown'),
+                indicator: 'red',
+            }, 8);
+        },
+    });
+}
+
+function pollEngineerStatus() {
+    if (!engineerState.jobId) return;
+    frappe.call({
+        method: 'flowagent.api.engineer.get_status',
+        args: {
+            job_id: engineerState.jobId,
+            since_iteration: engineerState.lastIterationCount,
+            since_log: engineerState.lastLogCount,
+        },
+        callback: r => {
+            if (!r.message) return;
+            renderEngineerStatus(r.message);
+        },
+        error: err => {
+            document.getElementById('fa-eng-status-line').textContent =
+                'Polling failed — see console';
+            console.error('engineer poll error', err);
+        },
+    });
+}
+
+function renderEngineerStatus(job) {
+    // Status line
+    const statusLine = document.getElementById('fa-eng-status-line');
+    const spinner = document.querySelector('#fa-eng-status .fa-eng-spinner');
+    statusLine.textContent = job.status || 'running';
+
+    // Iterations — append the new ones
+    if (job.iterations && job.iterations.length) {
+        const iterBox = document.getElementById('fa-eng-iterations');
+        job.iterations.forEach(it => iterBox.appendChild(renderIterationCard(it)));
+        engineerState.lastIterationCount = job.total_iterations;
+        iterBox.scrollTop = iterBox.scrollHeight;
+    }
+
+    // Logs — append the new ones
+    if (job.logs && job.logs.length) {
+        const logBox = document.getElementById('fa-eng-logs');
+        job.logs.forEach(l => {
+            const line = document.createElement('div');
+            line.className = 'fa-eng-log fa-eng-log-' + (l.level || 'info');
+            line.innerHTML = `<span class="fa-eng-log-ts">${frappe.utils.escape_html(l.ts.split(' ')[1] || '')}</span> ${frappe.utils.escape_html(l.message)}`;
+            logBox.appendChild(line);
+        });
+        engineerState.lastLogCount = job.total_logs;
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    // Terminal state?
+    if (job.status === 'finished') {
+        if (engineerState.pollTimer) {
+            clearInterval(engineerState.pollTimer);
+            engineerState.pollTimer = null;
+        }
+        if (spinner) spinner.classList.add('fa-eng-spinner-done');
+        engineerState.workflowName = job.workflow_name;
+
+        const cancelBtn = document.querySelector('[data-action="engineer-cancel"]');
+        const openBtn = document.querySelector('[data-action="engineer-open-workflow"]');
+        const resetBtn = document.querySelector('[data-action="engineer-reset"]');
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        if (openBtn && job.workflow_name) openBtn.style.display = '';
+        if (resetBtn) resetBtn.style.display = '';
+
+        const label =
+            job.final_status === 'success'   ? '✓ Goal achieved' :
+            job.final_status === 'cancelled' ? '✕ Cancelled' :
+            job.final_status === 'failed'    ? '⚠ Failed' :
+            '⧗ Max iterations reached';
+        statusLine.textContent = label;
+        // Attach the final reason as a sub-line
+        const goalEl = document.getElementById('fa-eng-status-goal');
+        if (goalEl && job.final_reason) {
+            goalEl.textContent = job.final_reason;
+        }
+    }
+}
+
+function renderIterationCard(it) {
+    const card = document.createElement('div');
+    const success = it.verdict && it.verdict.success;
+    card.className = 'fa-eng-iter ' + (success ? 'fa-eng-iter-ok' : 'fa-eng-iter-warn');
+    const status = it.run_status || 'unknown';
+    const stepCount = it.run_steps_count || 0;
+    const nodeCount = (it.workflow && (it.workflow.nodes || []).length) || 0;
+    const issue = (it.verdict && it.verdict.issue) || '';
+    const reasoning = (it.verdict && it.verdict.reasoning) || '';
+    card.innerHTML = `
+        <div class="fa-eng-iter-head">
+            <span class="fa-eng-iter-num">Iteration ${it.iteration}</span>
+            <span class="fa-eng-iter-badge fa-eng-badge-${success ? 'ok' : 'warn'}">${success ? 'success' : status}</span>
+        </div>
+        <div class="fa-eng-iter-body">
+            <div class="fa-eng-iter-meta">${nodeCount} nodes → ${stepCount} steps ran</div>
+            ${reasoning ? `<div class="fa-eng-iter-reasoning">${frappe.utils.escape_html(reasoning)}</div>` : ''}
+            ${issue && !success ? `<div class="fa-eng-iter-issue">${frappe.utils.escape_html(issue)}</div>` : ''}
+        </div>
+    `;
+    return card;
+}
+
+function cancelEngineerJob() {
+    if (!engineerState.jobId) return;
+    frappe.call({
+        method: 'flowagent.api.engineer.cancel',
+        args: { job_id: engineerState.jobId },
+        callback: () => {
+            frappe.show_alert({ message: 'Cancel requested — job will stop after current iteration.', indicator: 'orange' }, 4);
+        },
+    });
+}
+
+function openEngineeredWorkflow() {
+    if (!engineerState.workflowName) return;
+    closeEngineerModal();
+    // Load the workflow into the canvas
+    loadWorkflow(engineerState.workflowName);
 }
 
 function runDiagnose() {

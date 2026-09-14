@@ -252,3 +252,131 @@ class ServerScriptNode(BaseExecutor):
         # boundary, not the static check.
         safe_exec(code, _locals=local)  # nosemgrep: frappe-codeinjection-eval
         return local.get("result")
+
+
+@node("frappe_query")
+class QueryNode(BaseExecutor):
+    """Advanced database query — expression filters + aggregations.
+
+    Where `frappe_fetch` covers the common case ("get docs matching
+    equality filters"), `frappe_query` covers the harder cases:
+
+    - **Operator filters**: {"grand_total": [">", 1000], "status": "Paid"}
+      or list form: [["grand_total", ">", 1000], ["status", "=", "Paid"]]
+      Supported operators: =, !=, >, >=, <, <=, like, not like, in, not in,
+      between, is, is not.
+
+    - **Aggregations**: put SQL functions in the `fields` value, e.g.
+      "customer, count(name) as invoices, sum(grand_total) as total"
+      and set `group_by` to "customer". Result rows have the aggregate
+      columns as normal keys.
+
+    - **Ordering**: `order_by` supports any expression valid in
+      ORDER BY, including aggregate aliases (e.g. "total desc").
+
+    All filter VALUES are parameterised by Frappe internally (via
+    `frappe.get_all`). Only field/column NAMES pass through as literals,
+    and those come from admin-authored workflow configs.
+
+    Config:
+        doctype       — DocType to query (required)
+        filters       — JSON dict or list; supports operator syntax
+        fields        — csv string, defaults to "name"
+        group_by      — csv of columns to GROUP BY (optional)
+        order_by      — ORDER BY expression, defaults to "modified desc"
+        limit         — row cap, defaults to 100
+        output        — variable name to bind result under (defaults to "rows")
+    """
+
+    def run(self, *, node, cfg, context, runner):
+        doctype = (cfg.get("doctype") or "").strip()
+        if not doctype:
+            frappe.throw("frappe_query requires a doctype")
+
+        # Filters: accept dict, list-of-lists, JSON string of either.
+        raw_filters = cfg.get("filters")
+        filters = _parse_filters(raw_filters)
+
+        fields_csv = cfg.get("fields") or "name"
+        fields = [f.strip() for f in fields_csv.split(",") if f.strip()]
+
+        try:
+            limit = int(cfg.get("limit") or 100)
+        except (TypeError, ValueError):
+            limit = 100
+        limit = max(1, min(limit, 5000))  # sanity cap
+
+        order_by = (cfg.get("order_by") or "").strip() or "modified desc"
+        group_by = (cfg.get("group_by") or "").strip() or None
+
+        if runner.dry_run:
+            return {
+                "_dry_run": True,
+                "would_query": {
+                    "doctype": doctype,
+                    "filters": filters,
+                    "fields": fields,
+                    "group_by": group_by,
+                    "order_by": order_by,
+                    "limit": limit,
+                },
+            }
+
+        # frappe.get_all handles both simple queries and aggregations —
+        # aggregations kick in when fields contain SQL function calls
+        # AND group_by is set. Frappe parameterises values internally.
+        try:
+            rows = frappe.get_all(
+                doctype,
+                filters=filters,
+                fields=fields,
+                order_by=order_by,
+                group_by=group_by,
+                limit=limit,
+            )
+        except Exception as e:
+            frappe.throw(
+                f"frappe_query on {doctype} failed: {type(e).__name__}: {e}"
+            )
+
+        # Coerce Decimal/date types to JSON-friendly for the context
+        cleaned = []
+        for r in rows or []:
+            row = {}
+            for k, v in (r.items() if hasattr(r, "items") else r):
+                try:
+                    json.dumps(v, default=str)
+                    row[k] = v
+                except Exception:
+                    row[k] = str(v)
+            cleaned.append(row)
+
+        return {
+            "rows": cleaned,
+            "count": len(cleaned),
+            "doctype": doctype,
+        }
+
+
+def _parse_filters(raw):
+    """Parse filters input — accepts dict, list, or JSON string of either.
+
+    Returns whatever frappe.get_all's `filters` kwarg accepts:
+      - dict for equality: {"status": "Paid"}
+      - dict with operator lists: {"grand_total": [">", 1000]}
+      - list of triples: [["grand_total", ">", 1000], ["status", "=", "Paid"]]
+    """
+    if raw is None or raw == "":
+        return {}
+    if isinstance(raw, (dict, list)):
+        return raw
+    if isinstance(raw, str):
+        s = raw.strip()
+        if not s:
+            return {}
+        try:
+            return json.loads(s)
+        except json.JSONDecodeError:
+            # Fall through to tolerant parse (same trick as _parse_dict)
+            return _parse_dict(s)
+    return {}

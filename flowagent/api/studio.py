@@ -236,10 +236,16 @@ def _restart_required_for(trigger_doctype: str, trigger_event: str) -> bool:
     for the trigger to actually start firing.
 
     Frappe's doc_events are loaded from hooks.py once at app discovery
-    time. FlowAgent builds them dynamically from the trigger index — so
-    when a user adds a new trigger DocType, hooks.py needs to be
-    re-evaluated (which happens on bench restart) for that DocType to
-    be wired into the global event dispatch.
+    time (into a per-process cache). FlowAgent builds them dynamically
+    from the trigger index — so when a user adds a new trigger DocType,
+    hooks.py needs to be re-evaluated (which happens on bench restart)
+    for that DocType to be wired into the global event dispatch.
+
+    Implementation note: we read the CURRENT module-level doc_events
+    dict directly from hooks.py rather than going through
+    frappe.get_hooks (which merges across apps and normalises shapes).
+    This gives us an accurate picture of what THIS worker actually has
+    wired right now.
     """
     try:
         # Map FlowAgent event labels to Frappe controller hook names.
@@ -256,19 +262,19 @@ def _restart_required_for(trigger_doctype: str, trigger_event: str) -> bool:
         if not hook_name:
             return False  # Not a doctype event we'd register anyway
 
-        # frappe.get_hooks returns the merged hooks across all apps.
-        # We ask specifically for our handler under (doc_events, dt, hook).
-        handlers = frappe.get_hooks(
-            "doc_events", default={}, app_name="flowagent"
-        )
-        if not isinstance(handlers, dict):
-            return True  # Unexpected shape; assume restart needed
-        dt_handlers = handlers.get(trigger_doctype) or {}
-        return "flowagent.triggers.doctype_dispatcher.on_event" not in (
-            dt_handlers.get(hook_name) or []
-            if isinstance(dt_handlers.get(hook_name), list)
-            else [dt_handlers.get(hook_name)] if dt_handlers.get(hook_name) else []
-        )
+        # Read the currently-loaded doc_events from OUR hooks module.
+        # This is what the worker was initialised with on last startup.
+        from .. import hooks as flowagent_hooks
+        doc_events = getattr(flowagent_hooks, "doc_events", None) or {}
+        if not isinstance(doc_events, dict):
+            return True  # Unexpected shape → assume restart needed
+
+        dt_map = doc_events.get(trigger_doctype)
+        if not isinstance(dt_map, dict):
+            return True  # DocType not wired at all → restart needed
+        # Handler string is present only if this (dt, event) was in the
+        # trigger index at hook-load time.
+        return dt_map.get(hook_name) != "flowagent.triggers.doctype_dispatcher.on_event"
     except Exception:
         # If anything goes wrong, err on the side of "restart needed"
         # so the user gets the heads-up rather than a silent failure.
