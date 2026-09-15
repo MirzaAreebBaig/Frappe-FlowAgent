@@ -48,7 +48,11 @@ def _client():
             "No Anthropic API key configured. Set it in FlowAgent Settings, "
             "or via site_config 'anthropic_api_key', or env ANTHROPIC_API_KEY."
         )
-    return Anthropic(api_key=key)
+    # EXPLICIT TIMEOUT — without this, any node making an AI call can hang
+    # the whole worker indefinitely if the API stalls (firewall, proxy,
+    # rate limiting). 90s is generous for a single completion but keeps
+    # the worst-case bounded.
+    return Anthropic(api_key=key, timeout=90.0)
 
 
 def _model(cfg: dict) -> str:
@@ -142,6 +146,13 @@ class LLMPromptNode(BaseExecutor):
     """
 
     def run(self, *, node, cfg, context, runner):
+        # Dry-run: return a stub instead of calling the API. This lets
+        # the Engineer's test phase exercise workflow wiring without
+        # burning tokens or hanging on network calls.
+        if getattr(runner, "dry_run", False):
+            prompt_preview = (cfg.get("prompt", "") or "")[:120]
+            return f"[dry-run ai_llm stub — prompt: {prompt_preview}…]"
+
         client = _client()
         model = _model(cfg)
         kwargs = {
@@ -182,6 +193,11 @@ class ExtractNode(BaseExecutor):
         schema = self._build_schema(fields_raw)
         if not schema:
             frappe.throw("ai_extract needs at least one field to extract")
+
+        # Dry-run: return a stub dict matching the requested schema keys.
+        # Downstream nodes can then reference these keys correctly.
+        if getattr(runner, "dry_run", False):
+            return {k: f"[dry-run stub for {k}]" for k in schema.keys()}
 
         client = _client()
         field_lines = "\n".join(f"  - {k}: {desc}" for k, desc in schema.items())
@@ -241,6 +257,11 @@ class ClassifyNode(BaseExecutor):
             frappe.throw("ai_classify requires non-empty 'categories'")
         instructions = cfg.get("instructions") or ""
 
+        # Dry-run: return first category as a plausible pick so downstream
+        # branching logic can still be tested end-to-end.
+        if getattr(runner, "dry_run", False):
+            return cats[0]
+
         prompt = (
             f"Classify the input into exactly one of these categories: {', '.join(cats)}.\n"
             f"{instructions}\n\n"
@@ -279,6 +300,10 @@ class SentimentNode(BaseExecutor):
 
     def run(self, *, node, cfg, context, runner):
         text = cfg.get("text") or ""
+        # Dry-run: return neutral stub
+        if getattr(runner, "dry_run", False):
+            return {"sentiment": "neutral", "score": 0.0, "_dry_run": True}
+
         client = _client()
         model = _model(cfg)
         response = client.messages.create(
@@ -318,6 +343,10 @@ class VisionNode(BaseExecutor):
 
         if not file_url:
             frappe.throw("ai_vision requires file_url")
+
+        # Dry-run: skip file resolution AND API call. Just stub.
+        if getattr(runner, "dry_run", False):
+            return f"[dry-run ai_vision stub — would OCR '{file_url}' with prompt: {prompt[:80]}…]"
 
         image_block = self._build_image_block(file_url)
 
@@ -402,6 +431,20 @@ class AgentNode(BaseExecutor):
     """
 
     def run(self, *, node, cfg, context, runner):
+        # Dry-run: agent has an unbounded tool-loop that could burn many
+        # API calls and take a long time. Skip it entirely and return a
+        # descriptive stub summarising what it *would* do.
+        if getattr(runner, "dry_run", False):
+            task = (cfg.get("task", "") or "")[:200]
+            allowed = cfg.get("allowed_doctypes") or "(any)"
+            return {
+                "final_text": f"[dry-run ai_agent stub — would attempt: {task}]",
+                "tool_calls": [],
+                "iterations": 0,
+                "_dry_run": True,
+                "allowed_doctypes": allowed,
+            }
+
         client = _client()
         settings = runner.settings
         max_iters = int(cfg.get("max_iters") or settings.max_agent_iterations or 8)

@@ -1010,7 +1010,7 @@ window.flowagent_studio_html = function () {
                             <i class="ti ti-robot"></i>
                         </div>
                         <div>
-                            <div class="fa-ai-modal-title">FlowAgent Engineer <span class="fa-eng-ver">v0.5.5</span></div>
+                            <div class="fa-ai-modal-title">FlowAgent Engineer <span class="fa-eng-ver">v0.5.6</span></div>
                             <div class="fa-ai-modal-sub">Describe your goal — we'll design, build, test, and self-correct until it works.</div>
                         </div>
                         <button class="fa-ai-modal-close" data-action="engineer-modal-close" title="Close (Esc)">
