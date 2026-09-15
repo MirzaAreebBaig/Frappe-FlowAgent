@@ -404,9 +404,12 @@ def _run_loop(engineering_job_id: str) -> None:
                     test_payload=design.get("test_payload", {}),
                     test_mode=test_mode,
                     user=runner_user,
+                    job_id=job_id,
                 )
             except Exception as e:
                 _append_log(job_id, f"❌ Test setup crashed: {type(e).__name__}: {e}", "error")
+                _mirror_to_error_log(job_id, f"Test crashed on iteration {iter_num}",
+                                     f"{type(e).__name__}: {e}\n\n{traceback.format_exc()}")
                 run_summary = {
                     "status": "Failed",
                     "error_message": f"Test setup crashed: {type(e).__name__}: {e}",
@@ -796,7 +799,7 @@ def _build(design: dict, existing_name: str | None) -> str:
 # Test (dry-run the workflow with the synthetic payload)
 # ---------------------------------------------------------------------------
 def _test(workflow_name: str, test_payload: dict, test_mode: str,
-          user: str = "Administrator") -> dict:
+          user: str = "Administrator", job_id: str | None = None) -> dict:
     """Run the workflow and return a summary of what happened.
 
     Uses dry_run mode by default — nodes report what they *would* do
@@ -806,27 +809,72 @@ def _test(workflow_name: str, test_payload: dict, test_mode: str,
     `user` is the identity to run under. We accept it explicitly rather
     than reading frappe.session.user because inside a background worker
     the session user can be Guest / unset.
+
+    `job_id` is optional — when set, we emit heartbeat logs during
+    runner setup and execution so the user can see progress instead of
+    a silent block.
     """
     from ..engine.runner import Runner
 
-    runner = Runner(
-        workflow_name=workflow_name,
-        trigger_source=f"engineer_test:{test_mode}",
-        payload=test_payload or {},
-        user=user,
-        dry_run=(test_mode == "dry_run"),
-    )
+    payload_keys = list((test_payload or {}).keys())
+    if job_id:
+        _append_log(job_id,
+                    f"     • Constructing Runner (workflow='{workflow_name}', "
+                    f"user='{user}', dry_run={test_mode == 'dry_run'}, "
+                    f"payload_keys={payload_keys})",
+                    "info")
+
+    try:
+        runner = Runner(
+            workflow_name=workflow_name,
+            trigger_source=f"engineer_test:{test_mode}",
+            payload=test_payload or {},
+            user=user,
+            dry_run=(test_mode == "dry_run"),
+        )
+    except Exception as e:
+        if job_id:
+            _append_log(job_id, f"     ✗ Runner constructor threw: {type(e).__name__}: {e}", "error")
+            _mirror_to_error_log(job_id, "Runner constructor failed",
+                                 f"workflow={workflow_name}\n{type(e).__name__}: {e}\n\n{traceback.format_exc()}")
+        return {"status": "Failed",
+                "error_message": f"Runner constructor: {type(e).__name__}: {e}",
+                "steps": []}
+
+    if job_id:
+        _append_log(job_id, "     • Runner constructed, calling execute()…", "info")
+
+    exec_t0 = time.monotonic()
     try:
         run_name = runner.execute()
     except Exception as e:
-        return {
-            "status": "Failed",
-            "error_message": f"{type(e).__name__}: {e}",
-            "steps": [],
-        }
+        exec_ms = int((time.monotonic() - exec_t0) * 1000)
+        if job_id:
+            _append_log(job_id,
+                        f"     ✗ execute() threw after {exec_ms}ms: {type(e).__name__}: {e}",
+                        "error")
+            _mirror_to_error_log(job_id, "Runner.execute failed",
+                                 f"workflow={workflow_name}\n{type(e).__name__}: {e}\n\n{traceback.format_exc()}")
+        return {"status": "Failed",
+                "error_message": f"{type(e).__name__}: {e}",
+                "steps": []}
+    exec_ms = int((time.monotonic() - exec_t0) * 1000)
+
+    if job_id:
+        _append_log(job_id,
+                    f"     • execute() returned in {exec_ms}ms  •  run={run_name}",
+                    "info")
 
     # Load back the persisted run
-    run_doc = frappe.get_doc("FlowAgent Workflow Run", run_name)
+    try:
+        run_doc = frappe.get_doc("FlowAgent Workflow Run", run_name)
+    except Exception as e:
+        if job_id:
+            _append_log(job_id, f"     ✗ Failed to load run doc {run_name}: {e}", "error")
+        return {"status": "Failed",
+                "error_message": f"Could not load run doc: {e}",
+                "steps": []}
+
     steps = []
     for s in (run_doc.steps or []):
         steps.append({
