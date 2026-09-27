@@ -112,7 +112,10 @@ class HTTPNode(BaseExecutor):
         if not url:
             frappe.throw("int_http requires 'url'")
         method = (cfg.get("method") or "POST").upper()
-        timeout = int(cfg.get("timeout") or 30)
+        # Bound the timeout for the Engineer's test phase: even a "GET"
+        # against a made-up URL can hang for the default TCP connect
+        # window otherwise. Cap at 15s per request unless explicit.
+        timeout = min(int(cfg.get("timeout") or 15), 30)
 
         body_raw = cfg.get("body")
         body = None
@@ -122,12 +125,16 @@ class HTTPNode(BaseExecutor):
             except json.JSONDecodeError:
                 body = body_raw  # raw string body
 
-        if runner.dry_run and method != "GET":
-            # GET is read-only, so we still let it through. Other methods
-            # could mutate the remote — skip them.
+        # Dry-run: skip EVERY method, including GET. Claude often designs
+        # workflows pointing at made-up URLs; a GET against those will
+        # hang until timeout and produce nothing useful for the test.
+        if runner.dry_run:
             return {
                 "_dry_run": True,
                 "would_http": {"method": method, "url": url, "body_preview": str(body)[:200]},
+                "status_code": 200,   # so downstream branches don't die on missing key
+                "ok": True,
+                "body": {},
             }
 
         headers_raw = cfg.get("headers")
@@ -217,12 +224,15 @@ class SheetsNode(BaseExecutor):
         if not sheet_id:
             frappe.throw("int_sheets requires 'sheet_id'")
 
-        # Read is non-destructive; let it run in dry mode so downstream nodes
-        # have realistic data. Writes get short-circuited.
-        if runner.dry_run and action != "Read range":
+        # Dry-run: stub ALL actions including Read. Google Sheets auth
+        # can hang for many seconds if credentials aren't configured on
+        # this bench, and the Engineer's test phase shouldn't hit real
+        # external APIs at all — that's what live mode is for.
+        if runner.dry_run:
             return {
                 "_dry_run": True,
                 "would_sheets": {"action": action, "sheet_id": sheet_id, "range": rng},
+                "values": [],  # realistic-shaped stub for downstream nodes
             }
 
         token = self._get_access_token()
@@ -325,6 +335,17 @@ class RazorpayNode(BaseExecutor):
 
     def run(self, *, node, cfg, context, runner):
         action = cfg.get("action") or "Create order"
+
+        # Dry-run: stub ALL actions. Don't even check credentials — the
+        # test phase shouldn't require Razorpay setup on the dev bench.
+        if runner.dry_run:
+            return {
+                "_dry_run": True,
+                "would_razorpay": {"action": action, "amount": cfg.get("amount")},
+                "id": "order_stub_" + frappe.generate_hash(length=6),
+                "status": "created",
+            }
+
         key = frappe.conf.get("razorpay_key_id")
         secret = frappe.conf.get("razorpay_key_secret")
         if not (key and secret):
@@ -332,11 +353,6 @@ class RazorpayNode(BaseExecutor):
                 "Razorpay credentials missing. Set razorpay_key_id and "
                 "razorpay_key_secret in site_config.json."
             )
-        if runner.dry_run and action != "Fetch payment":
-            return {
-                "_dry_run": True,
-                "would_razorpay": {"action": action, "amount": cfg.get("amount")},
-            }
         auth = (key, secret)
 
         if action == "Create order":
