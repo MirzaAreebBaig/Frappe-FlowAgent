@@ -844,20 +844,64 @@ def _test(workflow_name: str, test_payload: dict, test_mode: str,
     if job_id:
         _append_log(job_id, "     • Runner constructed, calling execute()…", "info")
 
+    # Hard timeout guard. Even after fixing all known hang sources (AI
+    # nodes' dry_run stubs, HTTP timeouts, logic_wait skip, etc.), some
+    # unknown code path could still block indefinitely. This bounds the
+    # WHOLE runner.execute() to 120s in dry_run mode — if we blow past
+    # that, we abandon the test rather than eat the worker's 30-min RQ
+    # timeout in silence.
+    #
+    # We use ThreadPoolExecutor because it's the only Python primitive
+    # that lets us cleanly bail out on a blocked call. The abandoned
+    # thread continues in the background (Python has no safe thread
+    # kill), but the worker gets recycled by RQ so this is bounded.
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+
+    exec_timeout_sec = 120 if test_mode == "dry_run" else 600
     exec_t0 = time.monotonic()
+    executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="fa-engineer-test")
     try:
-        run_name = runner.execute()
-    except Exception as e:
-        exec_ms = int((time.monotonic() - exec_t0) * 1000)
-        if job_id:
-            _append_log(job_id,
-                        f"     ✗ execute() threw after {exec_ms}ms: {type(e).__name__}: {e}",
-                        "error")
-            _mirror_to_error_log(job_id, "Runner.execute failed",
-                                 f"workflow={workflow_name}\n{type(e).__name__}: {e}\n\n{traceback.format_exc()}")
-        return {"status": "Failed",
-                "error_message": f"{type(e).__name__}: {e}",
-                "steps": []}
+        future = executor.submit(runner.execute)
+        try:
+            run_name = future.result(timeout=exec_timeout_sec)
+        except FutureTimeoutError:
+            exec_ms = int((time.monotonic() - exec_t0) * 1000)
+            if job_id:
+                _append_log(
+                    job_id,
+                    f"     ⏱ execute() timed out after {exec_ms}ms "
+                    f"(hard cap: {exec_timeout_sec}s). Some node in the "
+                    f"designed workflow is blocking — abandoning this test.",
+                    "error",
+                )
+                _mirror_to_error_log(
+                    job_id,
+                    "Runner.execute hit hard timeout",
+                    f"workflow={workflow_name}, timeout={exec_timeout_sec}s\n"
+                    "This means a node inside the designed workflow is blocking "
+                    "beyond the safety cap. Common causes: node type without "
+                    "dry_run handling, external API call without timeout.",
+                )
+            # Note: we don't wait for the thread — it'll finish in the
+            # background. The worker's RQ timeout is the ultimate backstop.
+            return {"status": "Failed",
+                    "error_message": f"Test timed out after {exec_timeout_sec}s "
+                                     "— some node is blocking. See Error Log for details.",
+                    "steps": []}
+        except Exception as e:
+            exec_ms = int((time.monotonic() - exec_t0) * 1000)
+            if job_id:
+                _append_log(job_id,
+                            f"     ✗ execute() threw after {exec_ms}ms: {type(e).__name__}: {e}",
+                            "error")
+                _mirror_to_error_log(job_id, "Runner.execute failed",
+                                     f"workflow={workflow_name}\n{type(e).__name__}: {e}\n\n{traceback.format_exc()}")
+            return {"status": "Failed",
+                    "error_message": f"{type(e).__name__}: {e}",
+                    "steps": []}
+    finally:
+        # Don't wait — if execute is hung, we've already given up on it
+        executor.shutdown(wait=False)
     exec_ms = int((time.monotonic() - exec_t0) * 1000)
 
     if job_id:

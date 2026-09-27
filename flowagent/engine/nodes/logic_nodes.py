@@ -44,6 +44,11 @@ class WaitNode(BaseExecutor):
         sec = float(cfg.get("seconds") or 0)
         # Cap at 60s for synchronous runs — anything longer should be a scheduled workflow
         sec = min(sec, 60)
+        # Dry-run: skip the sleep entirely — the wait doesn't test any
+        # logic, and blocking for up to 60s per wait node would hang the
+        # Engineer's test phase.
+        if getattr(runner, "dry_run", False):
+            return {"waited_seconds": sec, "_dry_run": True}
         if sec > 0:
             time.sleep(sec)
         return {"waited_seconds": sec}
